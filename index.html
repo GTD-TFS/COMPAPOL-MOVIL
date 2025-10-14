@@ -37,19 +37,23 @@
       <button id="btnNuevo" class="btn">🔄 Nuevo</button>
     </div>
 
-    <!-- Grabación para servidor (funciona en iOS/Android) -->
+    <!-- Grabación para servidor (iOS/Android compatible) -->
     <div class="row-3" style="margin-bottom:10px;">
       <button id="btnRec" class="btn">🎧 Grabar (servidor)</button>
       <button id="btnRecStop" class="btn danger">⏹️ Parar grabación</button>
       <button id="btnSubir" class="btn">⬆️ Subir audio</button>
-      <input id="fileAudio" class="hidden" type="file" accept="audio/*">
+      <!-- Importante: capture="microphone" para forzar micro nativo -->
+      <input id="fileAudio" class="hidden" type="file" accept="audio/*" capture="microphone">
     </div>
 
     <div class="row" style="margin-bottom:10px;">
       <button id="btnRedactar" class="btn ok">🛡️ Redactar estilo policial (API)</button>
     </div>
 
-    <p class="muted">Revisa el texto transcrito antes de convertirlo. El dictado es continuo y sólo se detiene al pulsar “Parar”. En iPhone usa “Grabar (servidor)”.</p>
+    <p class="muted">
+      Revisa el texto transcrito antes de convertirlo. El dictado es continuo y sólo se detiene al pulsar “Parar”.<br>
+      En iPhone usa “Grabar (servidor)” o “Subir audio”.
+    </p>
 
     <textarea id="txtDictado" placeholder="Texto dictado (editable para corregir)…"></textarea>
     <div class="status" id="status"></div>
@@ -83,7 +87,7 @@
       const filiaciones = loadJSON("compapol.filiaciones", []);
       const objetos     = loadJSON("compapol.objetos", []);
 
-      // ====== Opción 1: Dictado continuo con Web Speech API (Android/Chrome) ======
+      // ====== Opción 1: Dictado continuo con Web Speech API (Android/Chrome). iOS NO. ======
       let recognition = null;
       let manuallyStopped = false;
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -122,7 +126,9 @@
       } else {
         // iOS/Safari no soporta SpeechRecognition
         btnMic.classList.add('warn');
-        btnMic.textContent = '🎤 No disponible (usa “Grabar (servidor)”)';
+        btnMic.textContent = '🎤 No disponible (usa “Grabar (servidor)” o “Subir audio”)';
+        // En móviles sin SR, que el botón de grabar abra directamente el selector nativo
+        btnRec.addEventListener('click', ()=> fileAudio.click());
       }
 
       btnMic.addEventListener('click', ()=>{
@@ -152,10 +158,16 @@
       async function startRecording() {
         try {
           recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
-                     : MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4'
-                     : 'audio/webm';
-          mediaRecorder = new MediaRecorder(recStream, { mimeType: mime });
+
+          // Elegir mime compatible; Safari se lleva mejor sin forzar si duda
+          let mime = '';
+          if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
+            if (MediaRecorder.isTypeSupported('audio/mp4'))  mime = 'audio/mp4';
+            else if (MediaRecorder.isTypeSupported('audio/webm')) mime = 'audio/webm';
+          }
+          mediaRecorder = mime ? new MediaRecorder(recStream, { mimeType: mime })
+                               : new MediaRecorder(recStream);
+
           recChunks = [];
 
           mediaRecorder.ondataavailable = (e)=> { if (e.data && e.data.size) recChunks.push(e.data); };
@@ -163,16 +175,24 @@
           mediaRecorder.onerror = (e)=> { status.textContent = '⚠️ Error grabación: ' + (e.error?.message || e.message || 'desconocido'); };
           mediaRecorder.onstop = async ()=>{
             try {
-              const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-              const ext  = blob.type.includes('mp4') ? 'm4a' : (blob.type.split('/')[1] || 'webm');
-              const file = new File([blob], `grabacion.${ext}`, { type: blob.type });
+              const type = mediaRecorder.mimeType || (recChunks[0]?.type) || 'audio/mp4';
+              const blob = new Blob(recChunks, { type });
+              const ext  = type.includes('mp4') ? 'm4a'
+                         : type.includes('webm') ? 'webm'
+                         : type.includes('wav') ? 'wav'
+                         : 'm4a';
+              const file = new File([blob], `grabacion.${ext}`, { type });
 
               status.textContent = '⏳ Enviando audio al servidor para transcribir…';
               const fd = new FormData();
               fd.append('file', file, file.name);
 
               const r = await fetch(`${API_BASE}/api/whisper`, { method:'POST', body: fd });
-              if (!r.ok) throw new Error('HTTP '+r.status);
+              if (!r.ok) {
+                let msg = 'HTTP ' + r.status;
+                try { const j = await r.json(); if (j?.error) msg += ' · ' + j.error; } catch {}
+                throw new Error(msg);
+              }
               const { text } = await r.json();
               txtDictado.value = text || '';
               status.textContent = '✅ Transcripción lista. Revisa y corrige si hace falta.';
@@ -207,7 +227,7 @@
       btnRec.addEventListener('click', startRecording);
       btnRecStop.addEventListener('click', stopRecording);
 
-      // ====== Subir archivo de audio manual ======
+      // ====== Subir archivo de audio manual (abre grabadora nativa en móvil) ======
       btnSubir.addEventListener('click', ()=> fileAudio.click());
       fileAudio.addEventListener('change', async ()=>{
         const f = fileAudio.files?.[0];
@@ -217,7 +237,11 @@
           const fd = new FormData();
           fd.append('file', f, f.name);
           const r = await fetch(`${API_BASE}/api/whisper`, { method:'POST', body: fd });
-          if (!r.ok) throw new Error('HTTP '+r.status);
+          if (!r.ok) {
+            let msg = 'HTTP ' + r.status;
+            try { const j = await r.json(); if (j?.error) msg += ' · ' + j.error; } catch {}
+            throw new Error(msg);
+          }
           const { text } = await r.json();
           txtDictado.value = text || '';
           status.textContent = '✅ Transcripción lista. Revisa y corrige si hace falta.';
