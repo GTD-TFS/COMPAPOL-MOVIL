@@ -6,10 +6,16 @@
 <title>COMPAPOL · iPhone</title>
 <style>
   :root{
-    --bg:#0b0820; --panel:#120e2a; --line:#3b2a7a; --txt:#f3e8ff; --muted:#c4b5fd;
-    --vio:#7c3aed; --vio-dk:#5b21b6; --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444;
+    --bg:#0b0820;
+    --panel:#120e2a;
+    --line:#3b2a7a;
+    --txt:#f3e8ff;
+    --muted:#c4b5fd;
+    --vio:#7c3aed;
+    --vio-dk:#5b21b6;
+    --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444;
   }
-  *{ box-sizing:border-box; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
   body{ margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
   header{ position:sticky; top:0; z-index:9; background:linear-gradient(90deg,var(--vio-dk),#1e1b4b); border-bottom:1px solid var(--line); padding:8px 10px; display:flex; gap:8px; align-items:center; }
   h1{ margin:0; font-size:14px; font-weight:600; }
@@ -22,15 +28,15 @@
   .out{ min-height:160px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px; }
   .chipbar{ display:flex; gap:6px; overflow-x:auto; padding:6px 0; }
   .chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 6px; background:#1b1146; border:1px solid var(--line); border-radius:999px; font-size:12px; white-space:nowrap; }
-  .chip .ins{ width:24px; height:24px; border-radius:8px; border:1px solid var(--line); background:#221155; color:var(--txt); display:inline-flex; align-items:center; justify-content:center; font-size:14px; }
+  .chip .mini{ width:24px; height:24px; border-radius:8px; border:1px solid var(--line); background:#221155; color:var(--txt); display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
   .accordion{ border:1px solid var(--line); border-radius:12px; overflow:hidden; }
   .acc-h{ background:#1a1440; padding:8px 10px; display:flex; align-items:center; justify-content:space-between; font-size:14px; }
   .acc-c{ background:#120e2a; padding:10px; display:none; }
   .acc-c.show{ display:block; }
   .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  input[type="text"],input[type="date"],select{ width:100%; height:34px; border-radius:8px; border:1px solid var(--line); background:#0b0820; color:var(--txt); padding:0 8px; font-size:14px; }
+  input[type="text"],select{ width:100%; height:34px; border-radius:8px; border:1px solid var(--line); background:#0b0820; color:var(--txt); padding:0 8px; font-size:14px; }
   .list{ margin-top:8px; display:grid; gap:6px; }
-  .rowItem{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; background:#101239; border:1px solid var(--line); border-radius:10px; font-size:13px; }
+  .rowItem{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; background:#101237; border:1px solid var(--line); border-radius:10px; font-size:13px; }
   .muted{ color:var(--muted); font-size:12px; }
 </style>
 </head>
@@ -52,10 +58,9 @@
     <button id="btnDraft" class="btn" title="Redactar policial">⚙️</button>
     <button id="btnCopy" class="btn" title="Copiar salida">📋</button>
     <button id="btnDownload" class="btn" title="Descargar JSON (doc + filiaciones)">💾</button>
-    <button id="btnTarget" class="btn" title="Destino de inserción">🎯T</button>
   </div>
 
-  <!-- Tira de filiaciones con insertar/eliminar -->
+  <!-- Tira de filiaciones (chips) con ➕T / ➕R / ✖️ -->
   <div class="chipbar" id="filiChips"></div>
 
   <!-- Panel plegable: añadir / importar filiaciones -->
@@ -69,25 +74,38 @@
       </div>
     </div>
     <div class="acc-c" id="accBody">
+      <!-- Campos EXACTOS que pediste -->
       <div class="grid2">
+        <select id="fiCondicion">
+          <option value="">(Condición)</option>
+          <option>denunciado</option>
+          <option>investigado</option>
+          <option>perjudicado</option>
+          <option>requirente</option>
+          <option>testigo</option>
+        </select>
+        <select id="fiSexo">
+          <option value="">(Sexo)</option>
+          <option>Masculino</option>
+          <option>Femenino</option>
+        </select>
+
         <input id="fiNombre" type="text" placeholder="Nombre">
         <input id="fiApellidos" type="text" placeholder="Apellidos (MAYÚSC.)">
-        <input id="fiDoc" type="text" placeholder="Documento Nº (p.ej. DNI 12345678Z)">
-        <input id="fiSexo" type="text" placeholder="Sexo (M/F)">
-        <input id="fiLugar" type="text" placeholder="Lugar nacimiento">
-        <input id="fiFecha" type="date" placeholder="Fecha nac. (YYYY-MM-DD)">
-        <input id="fiPadres" type="text" placeholder="Padres">
+
+        <input id="fiNacionalidad" type="text" placeholder="Nacionalidad">
+        <input id="fiTipoDoc" type="text" placeholder="Tipo de documento (DNI/NIE/PAS…)">
+
+        <input id="fiNumDoc" type="text" placeholder="Nº Documento">
+        <input id="fiFechaNac" type="text" placeholder="Fecha de nacimiento (libre)">
+
+        <input id="fiLugarNac" type="text" placeholder="Lugar de nacimiento">
+        <input id="fiPadres" type="text" placeholder="Nombre de los Padres">
+
         <input id="fiDom" type="text" placeholder="Domicilio">
         <input id="fiTel" type="text" placeholder="Teléfono">
-        <select id="fiCondicion">
-          <option value="">(Condición, solo guardar)</option>
-          <option value="denunciado">Denunciado</option>
-          <option value="investigado">Investigado</option>
-          <option value="perjudicado">Perjudicado</option>
-          <option value="requirente">Requirente</option>
-          <option value="testigo">Testigo</option>
-        </select>
       </div>
+
       <div class="muted" style="margin-top:6px;">Las fichas se guardan en este dispositivo.</div>
       <div class="list" id="filiList"></div>
     </div>
@@ -96,28 +114,35 @@
   <textarea id="txt" placeholder="Dicta o pega aquí el texto; inserta fichas con ➕ y pulsa ⚙️ para convertir a estilo policial."></textarea>
   <div id="status" class="status"></div>
 
-  <h3 style="margin:10px 0 6px;">Salida (editable)</h3>
+  <h3 style="margin:10px 0 6px;">Salida</h3>
   <div id="out" class="out" contenteditable="true"></div>
 </div>
 
 <script>
+/* ==================== CONFIG ==================== */
 const API_BASE = "https://compa-movil-backend.onrender.com";
 
+/* ==================== UTIL / ESTADO ==================== */
 const $ = s => document.querySelector(s);
 const live = $('#live'), statusEl = $('#status'), txt = $('#txt'), out = $('#out');
 function setStatus(s){ statusEl.textContent = s; }
-(async()=>{ try{ const r=await fetch(`${API_BASE}/healthz`); live.textContent=r.ok?'🟢':'🟠'; }catch{ live.textContent='🟠'; }})();
+function setLive(s){ live.textContent = s; }
 
-// ================= LocalStorage (mapa con llaves) =================
+/* ==================== STORAGE (objeto con llaves) ==================== */
 const LSK = "compapol.fili.map"; // { id: {campos}, ... }
-function loadMap(){ try{ const v=JSON.parse(localStorage.getItem(LSK)||"{}"); return v&&typeof v==="object"?v:{}; }catch{return{};} }
+function loadMap(){
+  try{ const v = JSON.parse(localStorage.getItem(LSK)||"{}"); return v && typeof v==="object" ? v : {}; }
+  catch{ return {}; }
+}
 function saveMap(m){ localStorage.setItem(LSK, JSON.stringify(m||{})); }
 
-// ================= Inserción en cursor =================
+/* ==================== INSERCIÓN EN CURSOR ==================== */
 function insertAtCursor(el, text){
   const start = el.selectionStart ?? el.value.length;
   const end = el.selectionEnd ?? el.value.length;
-  el.value = el.value.slice(0,start) + text + el.value.slice(end);
+  const before = el.value.slice(0,start);
+  const after  = el.value.slice(end);
+  el.value = before + text + after;
   const pos = start + text.length;
   el.selectionStart = el.selectionEnd = pos;
   el.focus();
@@ -125,116 +150,177 @@ function insertAtCursor(el, text){
 function insertHtmlAtCursorInContentEditable(container, html) {
   container.focus();
   const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) { container.insertAdjacentHTML('beforeend', html); return; }
+  if (!sel || sel.rangeCount === 0) {
+    container.insertAdjacentHTML('beforeend', html);
+    return;
+  }
   const range = sel.getRangeAt(0);
-  const temp = document.createElement('div'); temp.innerHTML = html;
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
   const frag = document.createDocumentFragment();
-  let node; while ((node = temp.firstChild)) frag.appendChild(node);
-  range.deleteContents(); range.insertNode(frag);
-  sel.removeAllRanges(); const r = document.createRange(); r.selectNodeContents(container); r.collapse(false); sel.addRange(r);
+  let node;
+  while ((node = temp.firstChild)) frag.appendChild(node);
+  range.deleteContents();
+  range.insertNode(frag);
+  // mover cursor al final
+  sel.removeAllRanges();
+  const r = document.createRange();
+  r.selectNodeContents(container);
+  r.collapse(false);
+  sel.addRange(r);
 }
 
-// ================= Formato de filiación (sin “condición”) =================
+/* ==================== FORMATO DE FICHA (usa tus campos) ==================== */
 function formatFichaFull(x){
   const nom=(x.nombre||"").trim(), ape=(x.apellidos||"").trim();
   if(!nom && !ape) return "";
   const segs=[];
   segs.push([nom.toUpperCase(), ape.toUpperCase()].filter(Boolean).join(" ").trim());
-  if (x.documentacion && x.documentacion.trim()) segs.push(x.documentacion.trim()); else segs.push("indocumentado/a");
-  const sx=(x.sexo||"").toUpperCase();
-  const nac = sx.startsWith("F") ? "nacida" : sx.startsWith("M") ? "nacido" : "nacido/a";
+
+  // Documento: Tipo + Nº o "indocumentado/a"
+  const tipo=(x.tipo_doc||"").trim(), num=(x.num_doc||"").trim();
+  if (tipo && num) segs.push(`${tipo} ${num}`);
+  else if (tipo && !num) segs.push(tipo);
+  else if (!tipo && num) segs.push(num);
+  else segs.push("indocumentado/a");
+
+  // nacido/a …
+  const sx=(x.sexo||"").toLowerCase();
+  const nac = sx.startsWith("f") ? "nacida" : sx.startsWith("m") ? "nacido" : "nacido/a";
   const lugar=(x.lugar_nacimiento||"").trim();
-  let f=(x.fecha_nacimiento||"").trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(f)){ const [Y,M,D]=f.split("-"); f=`${D}/${M}/${Y}`; }
+  const f=(x.fecha_nacimiento||"").trim(); // libre, no formateamos
   const segNac=[]; if(lugar) segNac.push(`en ${lugar}`); if(f) segNac.push(`el ${f}`);
   if (segNac.length) segs.push(`${nac} ${segNac.join(" ")}`);
+
+  // hijo/a de …
   if (x.padres && x.padres.trim()){
-    const hijo = sx.startsWith("F") ? "hija" : sx.startsWith("M") ? "hijo" : "hijo/a";
+    const hijo = sx.startsWith("f") ? "hija" : sx.startsWith("m") ? "hijo" : "hijo/a";
     segs.push(`${hijo} de ${x.padres.trim()}`);
   }
+
+  // domicilio …
   if (x.domicilio && x.domicilio.trim()) segs.push(`domicilio en ${x.domicilio.trim()}`);
+
+  // teléfono …
   if (x.telefono && x.telefono.trim()) segs.push(`teléfono ${x.telefono.trim()}`);
+
   return segs.join(", ")+".";
 }
 
-// ================= UI filiaciones (chips + lista) =================
-const chips=$('#filiChips'), list=$('#filiList'), accBody=$('#accBody');
-function aliasLabel(v){
+/* ==================== UI: CHIPS & LISTA ==================== */
+const chips = $('#filiChips');
+const list  = $('#filiList');
+const accBody = $('#accBody');
+
+function chipLabel(v){
   const n = [ (v.nombre||"").trim(), (v.apellidos||"").trim() ].filter(Boolean).join(" ");
   return n ? (n.length>14 ? n.slice(0,14)+"…" : n) : "sin nombre";
 }
+
 function rebuildUI(){
   const m = loadMap();
-  // Chips
+
+  // Chips con ➕T / ➕R / ✖️
   chips.innerHTML = "";
   for (const [id,v] of Object.entries(m)){
     const d=document.createElement('div'); d.className='chip';
-    const s=document.createElement('span'); s.textContent=aliasLabel(v);
-    const bIns=document.createElement('button'); bIns.className='ins'; bIns.textContent='➕'; bIns.title='Insertar';
-    bIns.onclick=()=>{
-      const ficha = formatFichaFull(v); if(!ficha) return;
-      if (insertTarget === 'T') insertAtCursor(txt, ficha+" ");
-      else insertHtmlAtCursorInContentEditable(out, `<p>— Que ${ficha}</p>`);
-    };
-    const bDel=document.createElement('button'); bDel.className='ins'; bDel.textContent='✖️'; bDel.title='Eliminar';
-    bDel.onclick=()=>{ const mm=loadMap(); delete mm[id]; saveMap(mm); rebuildUI(); setStatus('🗑️ Ficha eliminada.'); };
-    d.appendChild(s); d.appendChild(bIns); d.appendChild(bDel);
+    const s=document.createElement('span'); s.textContent=chipLabel(v);
+
+    const bT=document.createElement('button'); bT.className='mini'; bT.textContent='➕T'; bT.title='Insertar en TEXTO';
+    bT.onclick=()=>{ const t=formatFichaFull(v); if(t) insertAtCursor(txt, t+" "); };
+
+    const bR=document.createElement('button'); bR.className='mini'; bR.textContent='➕R'; bR.title='Insertar en REDACCIÓN';
+    bR.onclick=()=>{ const t=formatFichaFull(v); if(t) insertHtmlAtCursorInContentEditable(out, `<p>— Que ${t}</p>`); };
+
+    const bDel=document.createElement('button'); bDel.className='mini'; bDel.textContent='✖️'; bDel.title='Eliminar';
+    bDel.onclick=()=>{ const mm = loadMap(); delete mm[id]; saveMap(mm); rebuildUI(); setStatus('🗑️ Ficha eliminada.'); };
+
+    d.appendChild(s); d.appendChild(bT); d.appendChild(bR); d.appendChild(bDel);
     chips.appendChild(d);
   }
-  // Lista (panel)
+
+  // Lista del panel (➕T y ➕R, y 🗑️)
   list.innerHTML = "";
   for (const [id,v] of Object.entries(m)){
     const row=document.createElement('div'); row.className='rowItem';
     const l=document.createElement('div');
-    const display=[(v.nombre||"").toUpperCase(), (v.apellidos||"").toUpperCase()].filter(Boolean).join(" ").trim();
-    l.textContent=display || id;
+    const display = [ (v.nombre||"").toUpperCase(), (v.apellidos||"").toUpperCase() ].filter(Boolean).join(" ").trim();
+    l.textContent = display || id;
+
     const r=document.createElement('div');
-    const b1=document.createElement('button'); b1.className='btn w'; b1.textContent='➕ Insertar';
-    b1.onclick=()=>{ const ficha=formatFichaFull(v); if(!ficha) return;
-      if (insertTarget === 'T') insertAtCursor(txt, ficha+" ");
-      else insertHtmlAtCursorInContentEditable(out, `<p>— Que ${ficha}</p>`);
-    };
-    const b2=document.createElement('button'); b2.className='btn w'; b2.textContent='🗑️ Eliminar';
-    b2.onclick=()=>{ const mm=loadMap(); delete mm[id]; saveMap(mm); rebuildUI(); setStatus('🗑️ Ficha eliminada.'); };
-    r.appendChild(b1); r.appendChild(b2);
+    const b1=document.createElement('button'); b1.className='btn w'; b1.textContent='➕T';
+    b1.onclick=()=>{ const t=formatFichaFull(v); if(t) insertAtCursor(txt, t+" "); };
+
+    const b2=document.createElement('button'); b2.className='btn w'; b2.textContent='➕R';
+    b2.onclick=()=>{ const t=formatFichaFull(v); if(t) insertHtmlAtCursorInContentEditable(out, `<p>— Que ${t}</p>`); };
+
+    const b3=document.createElement('button'); b3.className='btn w'; b3.textContent='🗑️';
+    b3.onclick=()=>{ const mm = loadMap(); delete mm[id]; saveMap(mm); rebuildUI(); setStatus('🗑️ Ficha eliminada.'); };
+
+    r.appendChild(b1); r.appendChild(b2); r.appendChild(b3);
     row.appendChild(l); row.appendChild(r);
     list.appendChild(row);
   }
 }
 rebuildUI();
 
-// Plegar/Desplegar
-document.querySelector('.acc-h').addEventListener('click',(e)=>{
+// Plegar/Desplegar panel
+document.querySelector('.acc-h').addEventListener('click', (e)=>{
   if (e.target.id==='btnAddFili' || e.target.htmlFor==='fileFili') return;
   accBody.classList.toggle('show');
 });
 
-// Añadir ficha
-const fiNombre=$('#fiNombre'), fiApellidos=$('#fiApellidos'), fiDoc=$('#fiDoc'), fiSexo=$('#fiSexo'),
-      fiLugar=$('#fiLugar'), fiFecha=$('#fiFecha'), fiPadres=$('#fiPadres'),
-      fiDom=$('#fiDom'), fiTel=$('#fiTel'), fiCondicion=$('#fiCondicion');
+/* ==================== FORM / IMPORT ==================== */
+const fiCondicion=$('#fiCondicion'), fiSexo=$('#fiSexo'), fiNombre=$('#fiNombre'), fiApellidos=$('#fiApellidos'),
+      fiNacionalidad=$('#fiNacionalidad'), fiTipoDoc=$('#fiTipoDoc'), fiNumDoc=$('#fiNumDoc'),
+      fiFechaNac=$('#fiFechaNac'), fiLugarNac=$('#fiLugarNac'), fiPadres=$('#fiPadres'),
+      fiDom=$('#fiDom'), fiTel=$('#fiTel');
+
+function toInternalFromSpanish(obj){
+  // Mapea las claves del JSON { } con tus etiquetas a nuestro formato interno
+  return {
+    condicion: obj["Condición"] || obj["condicion"] || "",
+    sexo: obj["Sexo"] || obj["sexo"] || "",
+    nombre: obj["Nombre"] || obj["nombre"] || "",
+    apellidos: obj["Apellidos"] || obj["apellidos"] || "",
+    nacionalidad: obj["Nacionalidad"] || obj["nacionalidad"] || "",
+    tipo_doc: obj["Tipo de documento"] || obj["tipo_doc"] || obj["tipoDocumento"] || "",
+    num_doc: obj["Nº Documento"] || obj["numeroDocumento"] || obj["num_doc"] || obj["Nº documento"] || obj["Nº"] || "",
+    fecha_nacimiento: obj["Fecha de nacimiento"] || obj["fecha_nacimiento"] || "",
+    lugar_nacimiento: obj["Lugar de nacimiento"] || obj["lugar_nacimiento"] || "",
+    padres: obj["Nombre de los Padres"] || obj["padres"] || "",
+    domicilio: obj["Domicilio"] || obj["domicilio"] || "",
+    telefono: obj["Teléfono"] || obj["telefono"] || ""
+  };
+}
 
 $('#btnAddFili').addEventListener('click', ()=>{
   const id = "P"+Date.now();
   const v = {
+    condicion: fiCondicion.value||"",
+    sexo: fiSexo.value||"",
     nombre: fiNombre.value||"",
     apellidos: fiApellidos.value||"",
-    documentacion: fiDoc.value||"",
-    sexo: fiSexo.value||"",
-    lugar_nacimiento: fiLugar.value||"",
-    fecha_nacimiento: fiFecha.value||"",
+    nacionalidad: fiNacionalidad.value||"",
+    tipo_doc: fiTipoDoc.value||"",
+    num_doc: fiNumDoc.value||"",
+    fecha_nacimiento: fiFechaNac.value||"",
+    lugar_nacimiento: fiLugarNac.value||"",
     padres: fiPadres.value||"",
     domicilio: fiDom.value||"",
-    telefono: fiTel.value||"",
-    condicion: fiCondicion.value||""
+    telefono: fiTel.value||""
   };
   const m = loadMap(); m[id]=v; saveMap(m);
-  fiNombre.value=fiApellidos.value=fiDoc.value=fiSexo.value=fiLugar.value=fiFecha.value=fiPadres.value=fiDom.value=fiTel.value=""; fiCondicion.value="";
+  fiCondicion.value=fiSexo.value=fiNombre.value=fiApellidos.value=fiNacionalidad.value=fiTipoDoc.value=fiNumDoc.value=fiFechaNac.value=fiLugarNac.value=fiPadres.value=fiDom.value=fiTel.value="";
   rebuildUI();
   setStatus("✅ Ficha guardada.");
 });
 
-// Importar JSON (acepta {doc, filiaciones:{...}}, objeto plano, o array)
+// Importar JSON — ACEPTA 4 FORMAS:
+// 1) { doc, filiaciones:{ id:{...}, ... } }
+// 2) { id:{...}, id2:{...} }  (objeto plano)
+// 3) [ {...}, {...} ]         (array de fichas)
+// 4) { "Condición": "...", "Sexo": "...", ... }  (una sola ficha con tus claves)
 $('#fileFili').addEventListener('change', async (ev)=>{
   const f = ev.target.files?.[0]; if(!f) return;
   try{
@@ -242,22 +328,33 @@ $('#fileFili').addEventListener('change', async (ev)=>{
     const obj = JSON.parse(txtJ);
     const m = loadMap();
 
+    const addOne = (raw) => {
+      // Acepta tanto formato interno como el de etiquetas españolas
+      const v = toInternalFromSpanish(raw);
+      // Si todo viene vacío, no añadimos
+      const hasSome = Object.values(v).some(x => (x||"").toString().trim().length);
+      if (!hasSome) return;
+      const id = "P"+Date.now()+Math.floor(Math.random()*1000);
+      m[id] = v;
+    };
+
     if (Array.isArray(obj)) {
-      for (const it of obj) {
-        if (it && typeof it==="object") {
-          const id = (it.id && String(it.id)) || ("P"+Date.now()+Math.floor(Math.random()*1000));
-          const {nombre,apellidos,documentacion,sexo,lugar_nacimiento,fecha_nacimiento,padres,domicilio,telefono,condicion} = it;
-          m[id] = { nombre,apellidos,documentacion,sexo,lugar_nacimiento,fecha_nacimiento,padres,domicilio,telefono,condicion };
-        }
-      }
+      for (const it of obj) if (it && typeof it==="object") addOne(it);
     } else if (obj && typeof obj==="object") {
-      if (typeof obj.doc === "string") { out.innerHTML = obj.doc; } // cargar redacción si viene
-      const src = obj.filiaciones && typeof obj.filiaciones==="object" ? obj.filiaciones : obj;
-      for (const [id,val] of Object.entries(src)) {
-        if (id==="texto" || id==="doc") continue;
-        if (val && typeof val==="object") {
-          const {nombre,apellidos,documentacion,sexo,lugar_nacimiento,fecha_nacimiento,padres,domicilio,telefono,condicion} = val;
-          m[id] = { nombre,apellidos,documentacion,sexo,lugar_nacimiento,fecha_nacimiento,padres,domicilio,telefono,condicion };
+      if (typeof obj.doc === "string") out.innerHTML = obj.doc; // carga redacción si viene
+
+      if (obj.filiaciones && typeof obj.filiaciones==="object") {
+        for (const val of Object.values(obj.filiaciones)) if (val && typeof val==="object") addOne(val);
+      } else {
+        // ¿Es un objeto plano de múltiples ids o una sola ficha con etiquetas españolas?
+        const keys = Object.keys(obj);
+        const mayBeSingle = ["Condición","Sexo","Nombre","Apellidos","Nacionalidad","Tipo de documento","Nº Documento","Fecha de nacimiento","Lugar de nacimiento","Nombre de los Padres","Domicilio","Teléfono"];
+        const isSingle = mayBeSingle.some(k => k in obj) || mayBeSingle.some(k => k.toLowerCase() in Object.fromEntries(keys.map(k=>[k.toLowerCase(),true])));
+        if (isSingle) {
+          addOne(obj); // una sola ficha { ... }
+        } else {
+          // objeto plano con varias fichas por id
+          for (const val of Object.values(obj)) if (val && typeof val==="object") addOne(val);
         }
       }
     } else {
@@ -274,19 +371,10 @@ $('#fileFili').addEventListener('change', async (ev)=>{
   }
 });
 
-// ================= Destino de inserción (Texto / Redacción) =================
-let insertTarget = 'T';
-const btnTarget = document.querySelector('#btnTarget');
-btnTarget.addEventListener('click', ()=>{
-  insertTarget = (insertTarget === 'T') ? 'R' : 'T';
-  btnTarget.textContent = insertTarget === 'T' ? '🎯T' : '🎯R';
-  btnTarget.title = insertTarget === 'T' ? 'Insertar en Texto' : 'Insertar en Redacción';
-});
-
-// ================= Grabación (servidor) iPhone-friendly =================
+/* ==================== AUDIO (iPhone-friendly) ==================== */
 const btnRec = $('#btnRec'), btnRecStop = $('#btnRecStop'), fileAudio = $('#fileAudio');
-let mediaRecorder=null, recChunks=[], recStream=null;
 
+let mediaRecorder=null, recChunks=[], recStream=null;
 async function startRecording(){
   try{
     recStream = await navigator.mediaDevices.getUserMedia({ audio:true });
@@ -318,7 +406,6 @@ async function startRecording(){
   }catch(err){ setStatus('❌ Micrófono no disponible: '+(err.message||err)); }
 }
 function stopRecording(){ try{ if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop(); }catch{} }
-
 btnRec.addEventListener('click', startRecording);
 btnRecStop.addEventListener('click', stopRecording);
 
@@ -327,7 +414,7 @@ fileAudio.addEventListener('change', async ()=>{
   const f = fileAudio.files?.[0]; if(!f) return;
   try{
     setStatus('⏳ Transcribiendo…');
-    const fd = new FormData(); fd.append('file', f, f.name);
+    const fd = new FormData(); fd.append('file',f,f.name);
     const r = await fetch(`${API_BASE}/api/whisper`,{method:'POST', body:fd});
     if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
     const { text } = await r.json();
@@ -337,7 +424,7 @@ fileAudio.addEventListener('change', async ()=>{
   finally{ fileAudio.value=''; }
 });
 
-// ================= Redactar / limpiar / copiar / descargar =================
+/* ==================== REDACTAR / LIMPIAR / COPIAR / DESCARGAR ==================== */
 $('#btnDraft').addEventListener('click', async ()=>{
   const body = JSON.stringify({ texto: txt.value||"", filiaciones:[], objetos:[], fichas_resueltas:[] });
   try{
@@ -356,13 +443,16 @@ $('#btnCopy').addEventListener('click', async ()=>{
   try{
     const plain = (out.innerHTML||'').replace(/<p>/g,'\n').replace(/<[^>]+>/g,'').trim();
     await navigator.clipboard.writeText(plain);
-    setStatus('📋 Copiado.');
+    setStatus('📋 Copiado (texto plano).');
   }catch{ setStatus('⚠️ No se pudo copiar.'); }
 });
 
-// Descargar JSON principal: { doc, filiaciones:{...} }
+// Descargar JSON principal: { doc: (HTML salida), filiaciones:{...} }
 $('#btnDownload').addEventListener('click', ()=>{
-  const payload = { doc: out.innerHTML || "", filiaciones: loadMap() };
+  const payload = {
+    doc: out.innerHTML || "",
+    filiaciones: loadMap()
+  };
   const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -370,6 +460,9 @@ $('#btnDownload').addEventListener('click', ()=>{
   a.click();
   setStatus("💾 JSON descargado (doc + filiaciones).");
 });
+
+/* ==================== PING ==================== */
+(async()=>{ try{ const r=await fetch(`${API_BASE}/healthz`); setLive(r.ok?'🟢':'🟠'); }catch{ setLive('🟠'); }})();
 </script>
 </body>
 </html>
