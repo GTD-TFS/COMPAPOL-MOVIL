@@ -1,332 +1,363 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Compapol · Dictado → Comparecencia</title>
-  <style>
-    body { margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#0b1220; color:#e5e7eb; }
-    header { position:sticky; top:0; background:#111827; padding:12px 16px; border-bottom:1px solid #28324a; z-index:10; }
-    h1 { margin:0; font-size:18px; }
-    .wrap { padding:14px; max-width:760px; margin:0 auto; }
-    .row { display:grid; gap:10px; grid-template-columns:1fr 1fr; }
-    .row-3 { display:grid; gap:10px; grid-template-columns:1fr 1fr 1fr; }
-    .btn { width:100%; padding:14px; border:1px solid #28324a; border-radius:12px; background:#1f2937; color:#e5e7eb; font-size:16px; }
-    .btn:active { transform:scale(.99); }
-    .ok { border-color:#16a34a; }
-    .warn { border-color:#f59e0b; }
-    .danger { border-color:#ef4444; }
-    textarea { width:100%; min-height:160px; padding:12px; border-radius:12px; border:1px solid #28324a; background:#0f172a; color:#e5e7eb; font-size:15px; }
-    .out { min-height:200px; background:#0f172a; border:1px solid #28324a; border-radius:12px; padding:12px; }
-    .muted { color:#9ca3af; font-size:13px; }
-    .status { font-size:13px; margin-top:6px; min-height:18px; }
-    .hidden { display:none; }
-    @media (max-width:520px){ .row, .row-3 { grid-template-columns:1fr; } }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>COMPAPOL · iPhone</title>
+<style>
+  :root{ --bg:#0b1220; --panel:#0f172a; --line:#24324a; --txt:#e5e7eb; --muted:#94a3b8; --ok:#16a34a; --warn:#f59e0b; --danger:#ef4444; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+  header{ position:sticky; top:0; z-index:9; background:#111827; border-bottom:1px solid var(--line); padding:8px 10px; display:flex; gap:8px; align-items:center; }
+  h1{ margin:0; font-size:14px; font-weight:600; }
+  .wrap{ padding:10px; max-width:780px; margin:0 auto; }
+  .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .btn{ width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#1f2937; color:var(--txt); border-radius:10px; font-size:16px; }
+  .btn.w{ width:auto; padding:0 10px; height:36px; }
+  textarea{ width:100%; min-height:220px; background:var(--panel); color:var(--txt); border:1px solid var(--line); border-radius:12px; padding:10px; font-size:15px; }
+  .status{ font-size:12px; color:var(--muted); min-height:18px; margin:6px 2px 10px; }
+  .out{ min-height:160px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px; }
+  .chipbar{ display:flex; gap:6px; overflow-x:auto; padding:6px 0; }
+  .chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 6px; background:#182235; border:1px solid var(--line); border-radius:999px; font-size:12px; white-space:nowrap; }
+  .chip .ins{ width:24px; height:24px; border-radius:8px; border:1px solid var(--line); background:#22304a; color:var(--txt); display:inline-flex; align-items:center; justify-content:center; font-size:14px; }
+  .accordion{ border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .acc-h{ background:#131c2c; padding:8px 10px; display:flex; align-items:center; justify-content:space-between; font-size:14px; }
+  .acc-c{ background:#0f172a; padding:10px; display:none; }
+  .acc-c.show{ display:block; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  input[type="text"],input[type="date"]{ width:100%; height:34px; border-radius:8px; border:1px solid var(--line); background:#0b1220; color:var(--txt); padding:0 8px; font-size:14px; }
+  .list{ margin-top:8px; display:grid; gap:6px; }
+  .rowItem{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; background:#101a2a; border:1px solid var(--line); border-radius:10px; font-size:13px; }
+  .muted{ color:var(--muted); font-size:12px; }
+</style>
 </head>
 <body>
-  <header><h1>COMPAPOL · Dictado → Comparecencia</h1></header>
-  <div class="wrap">
+<header>
+  <h1>COMPAPOL · iPhone</h1>
+  <div id="live" class="muted"></div>
+</header>
+<div class="wrap">
 
-    <!-- Controles principales -->
-    <div class="row-3" style="margin-bottom:10px;">
-      <button id="btnMic" class="btn">🎤 Dictar (continuo)</button>
-      <button id="btnStop" class="btn danger">⏹️ Parar</button>
-      <button id="btnNuevo" class="btn">🔄 Nuevo</button>
-    </div>
-
-    <!-- Grabación para servidor (iOS/Android compatible) -->
-    <div class="row-3" style="margin-bottom:10px;">
-      <button id="btnRec" class="btn">🎧 Grabar (servidor)</button>
-      <button id="btnRecStop" class="btn danger">⏹️ Parar grabación</button>
-      <button id="btnSubir" class="btn">⬆️ Subir audio</button>
-      <input id="fileAudio" class="hidden" type="file" accept="audio/*" capture="microphone">
-    </div>
-
-    <!-- Filiaciones -->
-    <div class="row-3" style="margin-bottom:10px;">
-      <button id="btnImportFili" class="btn">📥 Importar filiaciones (JSON)</button>
-      <button id="btnVerFili" class="btn">👁️ Ver filiaciones</button>
-      <input id="fileFili" class="hidden" type="file" accept="application/json">
-    </div>
-
-    <div class="row" style="margin-bottom:10px;">
-      <button id="btnRedactar" class="btn ok">🛡️ Redactar estilo policial (API)</button>
-      <button id="btnCopy" class="btn">📋 Copiar salida</button>
-    </div>
-
-    <p class="muted">
-      El dictado continuo solo funciona en Android/Chrome. En iPhone usa “Grabar (servidor)” o “Subir audio”.
-    </p>
-
-    <textarea id="txtDictado" placeholder="Texto dictado (editable para corregir)…"></textarea>
-    <div class="status" id="status"></div>
-
-    <h3>Salida</h3>
-    <div id="salida" class="out"></div>
+  <!-- Botonera compacta -->
+  <div class="row" style="margin-bottom:8px;">
+    <button id="btnRec" class="btn" title="Grabar (servidor)">🎧</button>
+    <button id="btnRecStop" class="btn" title="Parar grabación">⏹️</button>
+    <label class="btn" title="Subir audio">
+      ⬆️ <input id="fileAudio" type="file" accept="audio/*" capture="microphone" style="display:none">
+    </label>
+    <button id="btnClear" class="btn" title="Limpiar">🧹</button>
+    <button id="btnDraft" class="btn" title="Redactar policial">⚙️</button>
+    <button id="btnCopy" class="btn" title="Copiar salida">📋</button>
+    <button id="btnDownload" class="btn" title="Descargar JSON">💾</button>
   </div>
 
-  <script>
-    // URL del backend (Render)
-    const API_BASE = "https://compa-movil-backend.onrender.com";
+  <!-- Tira de filiaciones con insertar -->
+  <div class="chipbar" id="filiChips"></div>
 
-    (function(){
-      const $ = (s)=>document.querySelector(s);
-      const btnMic = $('#btnMic'), btnStop = $('#btnStop'), btnNuevo = $('#btnNuevo');
-      const btnRec = $('#btnRec'), btnRecStop = $('#btnRecStop');
-      const btnSubir = $('#btnSubir'), fileAudio = $('#fileAudio');
-      const txtDictado = $('#txtDictado'), salida = $('#salida'), status = $('#status');
-      const btnImportFili = $('#btnImportFili'), btnVerFili = $('#btnVerFili'), fileFili = $('#fileFili');
-      const btnRedactar = $('#btnRedactar'), btnCopy = $('#btnCopy');
+  <!-- Panel plegable: añadir / importar filiaciones -->
+  <div class="accordion" style="margin:6px 0 10px;">
+    <div class="acc-h">
+      <span>Filiaciones ▾</span>
+      <div class="row">
+        <label class="btn w" for="fileFili" title="Importar JSON">📥 Importar</label>
+        <input id="fileFili" type="file" accept="application/json" style="display:none">
+        <button id="btnAddFili" class="btn w" title="Guardar ficha">➕ Añadir</button>
+      </div>
+    </div>
+    <div class="acc-c" id="accBody">
+      <div class="grid2">
+        <input id="fiNombre" type="text" placeholder="Nombre">
+        <input id="fiApellidos" type="text" placeholder="Apellidos (MAYÚSC.)">
+        <input id="fiDoc" type="text" placeholder="Documento o indocumentado/a">
+        <input id="fiSexo" type="text" placeholder="Sexo (M/F)">
+        <input id="fiLugar" type="text" placeholder="Lugar nacimiento">
+        <input id="fiFecha" type="date" placeholder="Fecha nac. (YYYY-MM-DD)">
+        <input id="fiPadres" type="text" placeholder="Padres">
+        <input id="fiDom" type="text" placeholder="Domicilio">
+        <input id="fiTel" type="text" placeholder="Teléfono">
+        <input id="fiAlias" type="text" placeholder="Alias (coma-sep.: conor, mcgregor)">
+      </div>
+      <div class="muted" style="margin-top:6px;">Las fichas se guardan en este dispositivo.</div>
+      <div class="list" id="filiList"></div>
+    </div>
+  </div>
 
-      // ====== LocalStorage helpers ======
-      const LSK_FILI_DB = "compapol.filiacionesDb";
-      function getFiliDb(){ try{ return JSON.parse(localStorage.getItem(LSK_FILI_DB)||"[]"); }catch{return[];} }
-      function setFiliDb(arr){ localStorage.setItem(LSK_FILI_DB, JSON.stringify(arr||[])); }
+  <textarea id="txt" placeholder="Dicta o pega aquí el texto; después inserta fichas con ➕ y pulsa ⚙️ para convertir a estilo policial."></textarea>
+  <div id="status" class="status"></div>
 
-      // ====== Formateo de fichas SOLO con campos presentes en el dictado ======
-      function normalizaTexto(s){ return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); }
+  <h3 style="margin:10px 0 6px;">Salida</h3>
+  <div id="out" class="out"></div>
+</div>
 
-      // Detecta si el dictado contiene una referencia a 'valor' (cadena o número)
-      function textoContiene(texto, valor){
-        if(!valor) return false;
-        const t = normalizaTexto(texto);
-        const v = normalizaTexto(String(valor));
-        if(/\d/.test(v)){ // si hay dígitos, busca la secuencia numérica
-          const num = v.replace(/\D+/g,"");
-          return num ? new RegExp(num.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).test(t.replace(/\D+/g,"")) : false;
-        }
-        // palabras
-        return t.includes(v);
-      }
+<script>
+const API_BASE = "https://compa-movil-backend.onrender.com";
 
-      // Dado el dictado y una ficha base, devuelve SOLO lo mencionado
-      function formatFichaParcial(dictado, base){
-        const piezas = [];
+// ====== Estado / util ======
+const $ = s => document.querySelector(s);
+const live = $('#live'), statusEl = $('#status'), txt = $('#txt'), out = $('#out');
+function setStatus(s){ statusEl.textContent = s; }
+function setLive(s){ live.textContent = s; }
 
-        // Nombre y apellidos: se incluyen siempre si hubo mención (alias detectado previamente)
-        const nombre = (base.nombre||"").toUpperCase();
-        const apellidos = (base.apellidos||"").toUpperCase();
-        const encabezado = [nombre, apellidos].filter(Boolean).join(" ").trim();
-        if (encabezado) piezas.push(encabezado);
+// ====== LocalStorage (objeto con llaves, sin arrays) ======
+const LSK = "compapol.fili.map"; // { id: {campos}, ... }
 
-        // Documentación si aparece en el dictado (“dni”, “pasaporte”, número, “indocumentado”/a)
-        if (base.documentacion){
-          const doc = String(base.documentacion);
-          if (textoContiene(dictado, doc) || /dni|pasaport|nie|indocumentad/i.test(dictado)) {
-            piezas.push(doc);
-          }
-        }
+function loadMap(){
+  try{ const v = JSON.parse(localStorage.getItem(LSK)||"{}"); return v && typeof v==="object" ? v : {}; }
+  catch{ return {}; }
+}
+function saveMap(m){ localStorage.setItem(LSK, JSON.stringify(m||{})); }
+function mapToArray(m){ return Object.entries(m||{}).map(([id,v])=>({id, ...v})); }
 
-        // Nacimiento (solo si aparece algo del lugar o la fecha en el dictado)
-        const lugar = base.lugar_nacimiento;
-        let fecha = base.fecha_nacimiento;
-        if (/^\d{4}-\d{2}-\d{2}$/.test(fecha||"")) {
-          const [Y,M,D] = fecha.split("-");
-          fecha = `${D}/${M}/${Y}`;
-        }
-        const hayLugar = lugar && textoContiene(dictado, lugar);
-        const hayFecha = fecha && textoContiene(dictado, fecha);
-        if (hayLugar || hayFecha) {
-          const nac = (base.sexo||"").toUpperCase().startsWith("F") ? "nacida" :
-                      (base.sexo||"").toUpperCase().startsWith("M") ? "nacido" : "nacido/a";
-          const segs = [];
-          segs.push(nac);
-          if (hayLugar) segs.push(`en ${lugar}`);
-          if (hayFecha) segs.push(`el ${fecha}`);
-          piezas.push(segs.join(" "));
-        }
+// ====== Inserción de texto en cursor ======
+function insertAtCursor(el, text){
+  const start = el.selectionStart ?? el.value.length;
+  const end = el.selectionEnd ?? el.value.length;
+  const before = el.value.slice(0,start);
+  const after  = el.value.slice(end);
+  el.value = before + text + after;
+  const pos = start + text.length;
+  el.selectionStart = el.selectionEnd = pos;
+  el.focus();
+}
 
-        // Padres si aparecen (o parte de ellos) en el dictado
-        if (base.padres && textoContiene(dictado, base.padres)) {
-          const hijo = (base.sexo||"").toUpperCase().startsWith("F") ? "hija" :
-                       (base.sexo||"").toUpperCase().startsWith("M") ? "hijo" : "hijo/a";
-          piezas.push(`${hijo} de ${base.padres}`);
-        }
+// ====== Formato de filiación (solo campos presentes) ======
+function formatFichaFull(x){
+  const nom = (x.nombre||"").trim();
+  const ape = (x.apellidos||"").trim();
+  if(!nom && !ape) return ""; // necesita al menos nombre/apellidos
 
-        // Domicilio si aparece
-        if (base.domicilio && textoContiene(dictado, base.domicilio)) {
-          piezas.push(`domicilio en ${base.domicilio}`);
-        }
+  const segs = [];
+  segs.push([nom.toUpperCase(), ape.toUpperCase()].filter(Boolean).join(" ").trim());
 
-        // Teléfono si aparece
-        if (base.telefono && textoContiene(dictado, base.telefono)) {
-          piezas.push(`teléfono ${base.telefono}`);
-        }
+  // doc / indocumentado/a
+  if (x.documentacion && x.documentacion.trim()){
+    segs.push(x.documentacion.trim());
+  } else {
+    segs.push("indocumentado/a");
+  }
 
-        return piezas.length ? (piezas.join(", ") + ".") : "";
-      }
+  // nacido/a en … el …
+  const sx = String(x.sexo||"").toUpperCase();
+  const nac = sx.startsWith("F") ? "nacida" : sx.startsWith("M") ? "nacido" : "nacido/a";
+  const lugar = (x.lugar_nacimiento||"").trim();
+  let f = (x.fecha_nacimiento||"").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(f)) { const [Y,M,D] = f.split("-"); f = `${D}/${M}/${Y}`; }
+  const segNac = [];
+  if (lugar) segNac.push(`en ${lugar}`);
+  if (f) segNac.push(`el ${f}`);
+  if (segNac.length) segs.push(`${nac} ${segNac.join(" ")}`);
 
-      // Detecta alias en el dictado y devuelve fichas_resueltas (SOLO datos mencionados)
-      function detectarFichasEnTexto(dictado) {
-        const db = getFiliDb();
-        const t = normalizaTexto(dictado);
-        const usadas = new Set();
-        const fichas = [];
-        for (const f of db) {
-          const aliases = Array.isArray(f.aliases) ? f.aliases : [];
-          for (const a of aliases) {
-            const needle = normalizaTexto(String(a||"").trim());
-            if (!needle) continue;
-            const re = new RegExp(`\\b${needle.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\$&")}\\b`, "i");
-            if (re.test(t)) {
-              if (!usadas.has(f.id)) {
-                usadas.add(f.id);
-                const parcial = formatFichaParcial(dictado, f);
-                if (parcial) fichas.push({ id:f.id, ficha: parcial });
-              }
-              break;
-            }
-          }
-        }
-        return fichas; // [{id, ficha}]
-      }
+  // hijo/a de …
+  if (x.padres && x.padres.trim()){
+    const hijo = sx.startsWith("F") ? "hija" : sx.startsWith("M") ? "hijo" : "hijo/a";
+    segs.push(`${hijo} de ${x.padres.trim()}`);
+  }
 
-      // ====== Web Speech (dictado continuo) ======
-      let recognition = null, manuallyStopped = false;
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SR) {
-        recognition = new SR();
-        recognition.lang = 'es-ES';
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-        recognition.continuous = true;
-        recognition.onstart = ()=> status.textContent = '🎙️ Dictando (continuo)… Pulsa ⏹️ Parar para detener.';
-        recognition.onresult = (e)=>{
-          let chunk = '';
-          for (let i = e.resultIndex; i < e.results.length; i++) {
-            const t = e.results[i][0]?.transcript || '';
-            if (t) chunk += (t.trim() + ' ');
-          }
-          if (chunk) txtDictado.value = (txtDictado.value ? (txtDictado.value.trim() + ' ') : '') + chunk.trim();
-        };
-        recognition.onerror = (e)=> status.textContent = '⚠️ Error micro: ' + (e.error || 'desconocido');
-        recognition.onend = ()=> {
-          if (!manuallyStopped) { try { recognition.start(); } catch {} }
-          else { status.textContent = '🛑 Dictado detenido.'; }
-        };
-      } else {
-        btnMic.classList.add('warn');
-        btnMic.textContent = '🎤 No disponible (usa “Grabar (servidor)” o “Subir audio”)';
-        btnRec.addEventListener('click', ()=> fileAudio.click());
-      }
+  // domicilio …
+  if (x.domicilio && x.domicilio.trim()){
+    segs.push(`domicilio en ${x.domicilio.trim()}`);
+  }
 
-      btnMic.addEventListener('click', ()=>{ if(!recognition){status.textContent='Este navegador no permite dictado directo.';return;} manuallyStopped=false; try{recognition.start();}catch{} });
-      btnStop.addEventListener('click', ()=>{ if(recognition){manuallyStopped=true; try{recognition.stop();}catch{} } });
-      btnNuevo.addEventListener('click', ()=>{ txtDictado.value=''; salida.innerHTML=''; status.textContent='🧹 Listo para nuevo dictado.'; });
+  // teléfono …
+  if (x.telefono && x.telefono.trim()){
+    segs.push(`teléfono ${x.telefono.trim()}`);
+  }
 
-      // ====== MediaRecorder → servidor ======
-      let mediaRecorder=null, recChunks=[], recStream=null;
-      async function startRecording(){
-        try{
-          recStream = await navigator.mediaDevices.getUserMedia({ audio:true });
-          let mime=''; if (window.MediaRecorder && MediaRecorder.isTypeSupported){
-            if (MediaRecorder.isTypeSupported('audio/mp4')) mime='audio/mp4';
-            else if (MediaRecorder.isTypeSupported('audio/webm')) mime='audio/webm';
-          }
-          mediaRecorder = mime ? new MediaRecorder(recStream,{mimeType:mime}) : new MediaRecorder(recStream);
-          recChunks = [];
-          mediaRecorder.ondataavailable = (e)=>{ if(e.data && e.data.size) recChunks.push(e.data); };
-          mediaRecorder.onstart = ()=> status.textContent='🔴 Grabando… Pulsa “⏹️ Parar grabación”.';
-          mediaRecorder.onerror = (e)=> status.textContent='⚠️ Error grabación: '+(e.error?.message||e.message||'desconocido');
-          mediaRecorder.onstop = async ()=>{
-            try{
-              const type = mediaRecorder.mimeType || (recChunks[0]?.type) || 'audio/mp4';
-              const blob = new Blob(recChunks,{type});
-              const ext = type.includes('mp4')?'m4a':type.includes('webm')?'webm':type.includes('wav')?'wav':'m4a';
-              const file = new File([blob],`grabacion.${ext}`,{type});
-              status.textContent='⏳ Enviando audio al servidor…';
-              const fd = new FormData(); fd.append('file',file,file.name);
-              const r = await fetch(`${API_BASE}/api/whisper`,{method:'POST',body:fd});
-              if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
-              const { text } = await r.json();
-              txtDictado.value = text || '';
-              status.textContent='✅ Transcripción lista. Revisa y corrige si hace falta.';
-            }catch(err){ status.textContent='❌ Error al transcribir: '+err.message; }
-            finally{ recStream?.getTracks()?.forEach(t=>t.stop()); recStream=null; mediaRecorder=null; recChunks=[]; }
-          };
-          mediaRecorder.start(1000);
-        }catch(err){ status.textContent='❌ No se pudo acceder al micrófono: '+(err.message||err.name||'permiso denegado'); }
-      }
-      function stopRecording(){ try{ if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop(); else status.textContent='ℹ️ No hay grabación activa.'; }catch(e){ status.textContent='⚠️ Error al detener grabación.'; } }
-      btnRec.addEventListener('click', startRecording);
-      btnRecStop.addEventListener('click', stopRecording);
+  return segs.join(", ") + ".";
+}
 
-      // ====== Subir archivo ======
-      btnSubir.addEventListener('click', ()=> fileAudio.click());
-      fileAudio.addEventListener('change', async ()=>{
-        const f = fileAudio.files?.[0]; if(!f) return;
-        status.textContent='⏳ Transcribiendo audio…';
-        try{
-          const fd = new FormData(); fd.append('file', f, f.name);
-          const r = await fetch(`${API_BASE}/api/whisper`,{method:'POST', body:fd});
-          if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
-          const { text } = await r.json();
-          txtDictado.value = text || '';
-          status.textContent='✅ Transcripción lista.';
-        }catch(err){ status.textContent='❌ Error al transcribir: '+err.message; }
-        finally{ fileAudio.value=''; }
-      });
+// ====== UI: chips + lista y panel plegable ======
+const chips = $('#filiChips');
+const list  = $('#filiList');
+const accBody = $('#accBody');
 
-      // ====== Filiaciones: importar/ver ======
-      btnImportFili.addEventListener('click', ()=> fileFili.click());
-      fileFili.addEventListener('change', async ()=>{
-        const f = fileFili.files?.[0]; if(!f) return;
-        try{
-          const txt = await f.text(); const json = JSON.parse(txt);
-          if(!Array.isArray(json)) throw new Error('El JSON debe ser un array');
-          setFiliDb(json);
-          alert(`Filiaciones cargadas: ${json.length}`);
-        }catch(e){ alert('Error al importar JSON: '+(e.message||e)); }
-        finally{ fileFili.value=''; }
-      });
-      btnVerFili.addEventListener('click', ()=>{
-        const db = getFiliDb();
-        alert(db.length ? db.map(x=> `${x.id||'id?'}: ${x.nombre||''} ${x.apellidos||''} [${(x.aliases||[]).join(', ')}]`).join("\n")
-                        : "No hay filiaciones cargadas");
-      });
+function aliasLabel(v){
+  const a = Array.isArray(v.aliases)? v.aliases[0] : "";
+  if (a) return a.length>12 ? a.slice(0,12)+"…" : a;
+  const n = (v.nombre||"").trim(); if(!n) return "sin nombre";
+  return n.length>12 ? n.slice(0,12)+"…" : n;
+}
 
-      // ====== Redactar ======
-      btnRedactar.addEventListener('click', async ()=>{
-        const texto = (txtDictado.value||'').trim();
-        if(!texto){ status.textContent='Escribe o dicta algo antes de redactar.'; return; }
-        status.textContent='⏳ Redactando comparecencia…';
-        salida.innerHTML='';
+function rebuildUI(){
+  const m = loadMap();
+  // chips (compacto)
+  chips.innerHTML = "";
+  for (const [id,v] of Object.entries(m)){
+    const div = document.createElement('div');
+    div.className = 'chip';
+    const span = document.createElement('span');
+    span.textContent = aliasLabel(v);
+    const btn = document.createElement('button');
+    btn.className = 'ins';
+    btn.textContent = '➕';
+    btn.title = 'Insertar en el cursor';
+    btn.onclick = ()=> {
+      const t = formatFichaFull(v);
+      if (t) insertAtCursor(txt, t+" ");
+    };
+    div.appendChild(span);
+    div.appendChild(btn);
+    chips.appendChild(div);
+  }
+  // lista completa (en panel)
+  list.innerHTML = "";
+  for (const [id,v] of Object.entries(m)){
+    const row = document.createElement('div');
+    row.className = 'rowItem';
+    const left = document.createElement('div');
+    left.textContent = `${(v.nombre||"").toUpperCase()} ${(v.apellidos||"").toUpperCase()}`.trim() || id;
+    const right = document.createElement('div');
+    const bIns = document.createElement('button'); bIns.className='btn w'; bIns.textContent='➕ Insertar';
+    bIns.onclick = ()=>{ const t = formatFichaFull(v); if(t) insertAtCursor(txt, t+" "); };
+    right.appendChild(bIns);
+    row.appendChild(left); row.appendChild(right);
+    list.appendChild(row);
+  }
+}
+rebuildUI();
 
-        try{
-          const fichasDetectadas = detectarFichasEnTexto(texto); // [{id,ficha}]
-          const body = JSON.stringify({
-            texto,
-            filiaciones: [], // si tienes otro panel de filiaciones manuales, colócalas aquí
-            objetos: [],     // idem objetos
-            fichas_resueltas: fichasDetectadas.map(x=> x.ficha) // SOLO lo mencionado
-          });
+// ====== Plegar/Desplegar ======
+document.querySelector('.acc-h').addEventListener('click', (e)=>{
+  if (e.target.id==='btnAddFili' || e.target.htmlFor==='fileFili') return;
+  accBody.classList.toggle('show');
+});
 
-          const r = await fetch(`${API_BASE}/api/police-draft`, {
-            method:'POST',
-            headers:{ 'Content-Type':'application/json' },
-            body
-          });
-          if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
-          const { html } = await r.json();
-          salida.innerHTML = html || '<em>(Sin contenido devuelto)</em>';
-          status.textContent='✅ Comparecencia generada.';
-        }catch(err){
-          status.textContent='❌ Error en redacción: '+err.message;
-        }
-      });
+// ====== Añadir ficha ======
+const fiNombre=$('#fiNombre'), fiApellidos=$('#fiApellidos'), fiDoc=$('#fiDoc'), fiSexo=$('#fiSexo'),
+      fiLugar=$('#fiLugar'), fiFecha=$('#fiFecha'), fiPadres=$('#fiPadres'), fiDom=$('#fiDom'), fiTel=$('#fiTel'), fiAlias=$('#fiAlias');
 
-      // Copiar salida
-      btnCopy.addEventListener('click', async ()=>{
-        try{
-          const html = salida.innerHTML;
-          const textoPlano = html.replace(/<p>/g,'\n').replace(/<[^>]+>/g,'').trim();
-          await navigator.clipboard.writeText(textoPlano);
-          status.textContent = '📋 Copiado al portapapeles (texto plano).';
-        }catch{ status.textContent='⚠️ No se pudo copiar.'; }
-      });
+$('#btnAddFili').addEventListener('click', ()=>{
+  const id = "P"+Date.now();
+  const v = {
+    nombre: fiNombre.value||"",
+    apellidos: fiApellidos.value||"",
+    documentacion: fiDoc.value||"",
+    sexo: fiSexo.value||"",
+    lugar_nacimiento: fiLugar.value||"",
+    fecha_nacimiento: fiFecha.value||"",
+    padres: fiPadres.value||"",
+    domicilio: fiDom.value||"",
+    telefono: fiTel.value||"",
+    aliases: (fiAlias.value||"").split(",").map(s=>s.trim()).filter(Boolean)
+  };
+  const m = loadMap(); m[id]=v; saveMap(m);
+  fiNombre.value=fiApellidos.value=fiDoc.value=fiSexo.value=fiLugar.value=fiFecha.value=fiPadres.value=fiDom.value=fiTel.value=fiAlias.value="";
+  rebuildUI();
+  setStatus("✅ Ficha guardada.");
+});
 
-    })();
-  </script>
+// ====== Importar JSON (objeto con llaves, sin arrays) ======
+$('#fileFili').addEventListener('change', async (ev)=>{
+  const f = ev.target.files?.[0]; if(!f) return;
+  try{
+    const txt = await f.text();
+    const obj = JSON.parse(txt);
+    if (!obj || typeof obj!=="object") throw new Error("El JSON debe ser un objeto { id: {…}, … }");
+    const m = loadMap();
+    for (const [id,val] of Object.entries(obj)){
+      if (id==="texto") continue; // por si viene empaquetado
+      if (val && typeof val==="object") m[id]=val;
+    }
+    saveMap(m);
+    rebuildUI();
+    setStatus("✅ Filiaciones importadas.");
+  }catch(e){ setStatus("❌ Error al importar: "+(e.message||e)); }
+  finally{ ev.target.value=""; }
+});
+
+// ====== Descargar JSON { texto, filiaciones:{...} } ======
+$('#btnDownload').addEventListener('click', ()=>{
+  const payload = {
+    texto: txt.value||"",
+    filiaciones: loadMap()
+  };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = "compapol.json";
+  a.click();
+  setStatus("💾 JSON descargado.");
+});
+
+// ====== Grabación (servidor) iPhone-friendly ======
+const btnRec = $('#btnRec'), btnRecStop = $('#btnRecStop'), fileAudio = $('#fileAudio');
+
+let mediaRecorder=null, recChunks=[], recStream=null;
+async function startRecording(){
+  try{
+    recStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    let mime=''; if (window.MediaRecorder && MediaRecorder.isTypeSupported){
+      if (MediaRecorder.isTypeSupported('audio/mp4')) mime='audio/mp4';
+      else if (MediaRecorder.isTypeSupported('audio/webm')) mime='audio/webm';
+    }
+    mediaRecorder = mime ? new MediaRecorder(recStream,{mimeType:mime}) : new MediaRecorder(recStream);
+    recChunks=[];
+    mediaRecorder.ondataavailable = e=>{ if(e.data && e.data.size) recChunks.push(e.data); };
+    mediaRecorder.onstart = ()=> setStatus('🔴 Grabando…');
+    mediaRecorder.onstop = async ()=>{
+      try{
+        const type = mediaRecorder.mimeType || (recChunks[0]?.type) || 'audio/mp4';
+        const blob = new Blob(recChunks,{type});
+        const ext = type.includes('mp4')?'m4a':type.includes('webm')?'webm':type.includes('wav')?'wav':'m4a';
+        const file = new File([blob],`grabacion.${ext}`,{type});
+        setStatus('⏳ Enviando audio…');
+        const fd = new FormData(); fd.append('file',file,file.name);
+        const r = await fetch(`${API_BASE}/api/whisper`,{method:'POST', body:fd});
+        if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
+        const { text } = await r.json();
+        txt.value = (txt.value ? (txt.value.trim()+" ") : "") + (text||"");
+        setStatus('✅ Transcripción lista.');
+      }catch(e){ setStatus('❌ Error: '+(e.message||e)); }
+      finally{ recStream?.getTracks()?.forEach(t=>t.stop()); recStream=null; mediaRecorder=null; recChunks=[]; }
+    };
+    mediaRecorder.start(1000);
+  }catch(err){ setStatus('❌ Micrófono no disponible: '+(err.message||err)); }
+}
+function stopRecording(){ try{ if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop(); }catch{} }
+
+btnRec.addEventListener('click', startRecording);
+btnRecStop.addEventListener('click', stopRecording);
+
+// Subir audio manual
+fileAudio.addEventListener('change', async ()=>{
+  const f = fileAudio.files?.[0]; if(!f) return;
+  try{
+    setStatus('⏳ Transcribiendo…');
+    const fd = new FormData(); fd.append('file',f,f.name);
+    const r = await fetch(`${API_BASE}/api/whisper`,{method:'POST', body:fd});
+    if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
+    const { text } = await r.json();
+    txt.value = (txt.value ? (txt.value.trim()+" ") : "") + (text||"");
+    setStatus('✅ Transcripción lista.');
+  }catch(e){ setStatus('❌ Error: '+(e.message||e)); }
+  finally{ fileAudio.value=''; }
+});
+
+// Redactar
+$('#btnDraft').addEventListener('click', async ()=>{
+  const body = JSON.stringify({ texto: txt.value||"", filiaciones:[], objetos:[], fichas_resueltas:[] });
+  try{
+    setStatus('⏳ Redactando comparecencia…');
+    const r = await fetch(`${API_BASE}/api/police-draft`, { method:'POST', headers:{'Content-Type':'application/json'}, body });
+    if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
+    const { html } = await r.json();
+    out.innerHTML = html || '';
+    setStatus('✅ Listo.');
+  }catch(e){ setStatus('❌ Error en redacción: '+(e.message||e)); }
+});
+
+// Limpiar, copiar
+$('#btnClear').addEventListener('click', ()=>{ txt.value=''; out.innerHTML=''; setStatus('🧹 Limpio.'); });
+$('#btnCopy').addEventListener('click', async ()=>{
+  try{
+    const plain = (out.innerHTML||'').replace(/<p>/g,'\n').replace(/<[^>]+>/g,'').trim();
+    await navigator.clipboard.writeText(plain);
+    setStatus('📋 Copiado.');
+  }catch{ setStatus('⚠️ No se pudo copiar.'); }
+});
+
+// Ping
+(async()=>{ try{ const r=await fetch(`${API_BASE}/healthz`); setLive(r.ok?'🟢':'🟠'); }catch{ setLive('🟠'); }})();
+</script>
 </body>
 </html>
