@@ -5,29 +5,32 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>COMPAPOL · iPhone</title>
 <style>
-  :root{ --bg:#0b1220; --panel:#0f172a; --line:#24324a; --txt:#e5e7eb; --muted:#94a3b8; --ok:#16a34a; --warn:#f59e0b; --danger:#ef4444; }
+  :root{
+    --bg:#0b0820; --panel:#120e2a; --line:#3b2a7a; --txt:#f3e8ff; --muted:#c4b5fd;
+    --vio:#7c3aed; --vio-dk:#5b21b6; --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444;
+  }
   *{ box-sizing:border-box; }
   body{ margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-  header{ position:sticky; top:0; z-index:9; background:#111827; border-bottom:1px solid var(--line); padding:8px 10px; display:flex; gap:8px; align-items:center; }
+  header{ position:sticky; top:0; z-index:9; background:linear-gradient(90deg,var(--vio-dk),#1e1b4b); border-bottom:1px solid var(--line); padding:8px 10px; display:flex; gap:8px; align-items:center; }
   h1{ margin:0; font-size:14px; font-weight:600; }
   .wrap{ padding:10px; max-width:780px; margin:0 auto; }
   .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .btn{ width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#1f2937; color:var(--txt); border-radius:10px; font-size:16px; }
-  .btn.w{ width:auto; padding:0 10px; height:36px; }
+  .btn{ width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#1f1140; color:var(--txt); border-radius:10px; font-size:16px; }
+  .btn.w{ width:auto; padding:0 10px; height:36px; background:#27135a; }
   textarea{ width:100%; min-height:220px; background:var(--panel); color:var(--txt); border:1px solid var(--line); border-radius:12px; padding:10px; font-size:15px; }
   .status{ font-size:12px; color:var(--muted); min-height:18px; margin:6px 2px 10px; }
   .out{ min-height:160px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px; }
   .chipbar{ display:flex; gap:6px; overflow-x:auto; padding:6px 0; }
-  .chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 6px; background:#182235; border:1px solid var(--line); border-radius:999px; font-size:12px; white-space:nowrap; }
-  .chip .ins{ width:24px; height:24px; border-radius:8px; border:1px solid var(--line); background:#22304a; color:var(--txt); display:inline-flex; align-items:center; justify-content:center; font-size:14px; }
+  .chip{ display:inline-flex; align-items:center; gap:6px; padding:4px 6px; background:#1b1146; border:1px solid var(--line); border-radius:999px; font-size:12px; white-space:nowrap; }
+  .chip .ins{ width:24px; height:24px; border-radius:8px; border:1px solid var(--line); background:#221155; color:var(--txt); display:inline-flex; align-items:center; justify-content:center; font-size:14px; }
   .accordion{ border:1px solid var(--line); border-radius:12px; overflow:hidden; }
-  .acc-h{ background:#131c2c; padding:8px 10px; display:flex; align-items:center; justify-content:space-between; font-size:14px; }
-  .acc-c{ background:#0f172a; padding:10px; display:none; }
+  .acc-h{ background:#1a1440; padding:8px 10px; display:flex; align-items:center; justify-content:space-between; font-size:14px; }
+  .acc-c{ background:#120e2a; padding:10px; display:none; }
   .acc-c.show{ display:block; }
   .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  input[type="text"],input[type="date"]{ width:100%; height:34px; border-radius:8px; border:1px solid var(--line); background:#0b1220; color:var(--txt); padding:0 8px; font-size:14px; }
+  input[type="text"],input[type="date"],select{ width:100%; height:34px; border-radius:8px; border:1px solid var(--line); background:#0b0820; color:var(--txt); padding:0 8px; font-size:14px; }
   .list{ margin-top:8px; display:grid; gap:6px; }
-  .rowItem{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; background:#101a2a; border:1px solid var(--line); border-radius:10px; font-size:13px; }
+  .rowItem{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; background:#101239; border:1px solid var(--line); border-radius:10px; font-size:13px; }
   .muted{ color:var(--muted); font-size:12px; }
 </style>
 </head>
@@ -48,10 +51,11 @@
     <button id="btnClear" class="btn" title="Limpiar">🧹</button>
     <button id="btnDraft" class="btn" title="Redactar policial">⚙️</button>
     <button id="btnCopy" class="btn" title="Copiar salida">📋</button>
-    <button id="btnDownload" class="btn" title="Descargar JSON">💾</button>
+    <button id="btnDownload" class="btn" title="Descargar JSON (doc + filiaciones)">💾</button>
+    <button id="btnTarget" class="btn" title="Destino de inserción">🎯T</button>
   </div>
 
-  <!-- Tira de filiaciones con insertar -->
+  <!-- Tira de filiaciones con insertar/eliminar -->
   <div class="chipbar" id="filiChips"></div>
 
   <!-- Panel plegable: añadir / importar filiaciones -->
@@ -68,163 +72,147 @@
       <div class="grid2">
         <input id="fiNombre" type="text" placeholder="Nombre">
         <input id="fiApellidos" type="text" placeholder="Apellidos (MAYÚSC.)">
-        <input id="fiDoc" type="text" placeholder="Documento o indocumentado/a">
+        <input id="fiDoc" type="text" placeholder="Documento Nº (p.ej. DNI 12345678Z)">
         <input id="fiSexo" type="text" placeholder="Sexo (M/F)">
         <input id="fiLugar" type="text" placeholder="Lugar nacimiento">
         <input id="fiFecha" type="date" placeholder="Fecha nac. (YYYY-MM-DD)">
         <input id="fiPadres" type="text" placeholder="Padres">
         <input id="fiDom" type="text" placeholder="Domicilio">
         <input id="fiTel" type="text" placeholder="Teléfono">
-        <input id="fiAlias" type="text" placeholder="Alias (coma-sep.: conor, mcgregor)">
+        <select id="fiCondicion">
+          <option value="">(Condición, solo guardar)</option>
+          <option value="denunciado">Denunciado</option>
+          <option value="investigado">Investigado</option>
+          <option value="perjudicado">Perjudicado</option>
+          <option value="requirente">Requirente</option>
+          <option value="testigo">Testigo</option>
+        </select>
       </div>
       <div class="muted" style="margin-top:6px;">Las fichas se guardan en este dispositivo.</div>
       <div class="list" id="filiList"></div>
     </div>
   </div>
 
-  <textarea id="txt" placeholder="Dicta o pega aquí el texto; después inserta fichas con ➕ y pulsa ⚙️ para convertir a estilo policial."></textarea>
+  <textarea id="txt" placeholder="Dicta o pega aquí el texto; inserta fichas con ➕ y pulsa ⚙️ para convertir a estilo policial."></textarea>
   <div id="status" class="status"></div>
 
-  <h3 style="margin:10px 0 6px;">Salida</h3>
-  <div id="out" class="out"></div>
+  <h3 style="margin:10px 0 6px;">Salida (editable)</h3>
+  <div id="out" class="out" contenteditable="true"></div>
 </div>
 
 <script>
 const API_BASE = "https://compa-movil-backend.onrender.com";
 
-// ====== Estado / util ======
 const $ = s => document.querySelector(s);
 const live = $('#live'), statusEl = $('#status'), txt = $('#txt'), out = $('#out');
 function setStatus(s){ statusEl.textContent = s; }
-function setLive(s){ live.textContent = s; }
+(async()=>{ try{ const r=await fetch(`${API_BASE}/healthz`); live.textContent=r.ok?'🟢':'🟠'; }catch{ live.textContent='🟠'; }})();
 
-// ====== LocalStorage (objeto con llaves, sin arrays) ======
+// ================= LocalStorage (mapa con llaves) =================
 const LSK = "compapol.fili.map"; // { id: {campos}, ... }
-
-function loadMap(){
-  try{ const v = JSON.parse(localStorage.getItem(LSK)||"{}"); return v && typeof v==="object" ? v : {}; }
-  catch{ return {}; }
-}
+function loadMap(){ try{ const v=JSON.parse(localStorage.getItem(LSK)||"{}"); return v&&typeof v==="object"?v:{}; }catch{return{};} }
 function saveMap(m){ localStorage.setItem(LSK, JSON.stringify(m||{})); }
-function mapToArray(m){ return Object.entries(m||{}).map(([id,v])=>({id, ...v})); }
 
-// ====== Inserción de texto en cursor ======
+// ================= Inserción en cursor =================
 function insertAtCursor(el, text){
   const start = el.selectionStart ?? el.value.length;
   const end = el.selectionEnd ?? el.value.length;
-  const before = el.value.slice(0,start);
-  const after  = el.value.slice(end);
-  el.value = before + text + after;
+  el.value = el.value.slice(0,start) + text + el.value.slice(end);
   const pos = start + text.length;
   el.selectionStart = el.selectionEnd = pos;
   el.focus();
 }
+function insertHtmlAtCursorInContentEditable(container, html) {
+  container.focus();
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) { container.insertAdjacentHTML('beforeend', html); return; }
+  const range = sel.getRangeAt(0);
+  const temp = document.createElement('div'); temp.innerHTML = html;
+  const frag = document.createDocumentFragment();
+  let node; while ((node = temp.firstChild)) frag.appendChild(node);
+  range.deleteContents(); range.insertNode(frag);
+  sel.removeAllRanges(); const r = document.createRange(); r.selectNodeContents(container); r.collapse(false); sel.addRange(r);
+}
 
-// ====== Formato de filiación (solo campos presentes) ======
+// ================= Formato de filiación (sin “condición”) =================
 function formatFichaFull(x){
-  const nom = (x.nombre||"").trim();
-  const ape = (x.apellidos||"").trim();
-  if(!nom && !ape) return ""; // necesita al menos nombre/apellidos
-
-  const segs = [];
+  const nom=(x.nombre||"").trim(), ape=(x.apellidos||"").trim();
+  if(!nom && !ape) return "";
+  const segs=[];
   segs.push([nom.toUpperCase(), ape.toUpperCase()].filter(Boolean).join(" ").trim());
-
-  // doc / indocumentado/a
-  if (x.documentacion && x.documentacion.trim()){
-    segs.push(x.documentacion.trim());
-  } else {
-    segs.push("indocumentado/a");
-  }
-
-  // nacido/a en … el …
-  const sx = String(x.sexo||"").toUpperCase();
+  if (x.documentacion && x.documentacion.trim()) segs.push(x.documentacion.trim()); else segs.push("indocumentado/a");
+  const sx=(x.sexo||"").toUpperCase();
   const nac = sx.startsWith("F") ? "nacida" : sx.startsWith("M") ? "nacido" : "nacido/a";
-  const lugar = (x.lugar_nacimiento||"").trim();
-  let f = (x.fecha_nacimiento||"").trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(f)) { const [Y,M,D] = f.split("-"); f = `${D}/${M}/${Y}`; }
-  const segNac = [];
-  if (lugar) segNac.push(`en ${lugar}`);
-  if (f) segNac.push(`el ${f}`);
+  const lugar=(x.lugar_nacimiento||"").trim();
+  let f=(x.fecha_nacimiento||"").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(f)){ const [Y,M,D]=f.split("-"); f=`${D}/${M}/${Y}`; }
+  const segNac=[]; if(lugar) segNac.push(`en ${lugar}`); if(f) segNac.push(`el ${f}`);
   if (segNac.length) segs.push(`${nac} ${segNac.join(" ")}`);
-
-  // hijo/a de …
   if (x.padres && x.padres.trim()){
     const hijo = sx.startsWith("F") ? "hija" : sx.startsWith("M") ? "hijo" : "hijo/a";
     segs.push(`${hijo} de ${x.padres.trim()}`);
   }
-
-  // domicilio …
-  if (x.domicilio && x.domicilio.trim()){
-    segs.push(`domicilio en ${x.domicilio.trim()}`);
-  }
-
-  // teléfono …
-  if (x.telefono && x.telefono.trim()){
-    segs.push(`teléfono ${x.telefono.trim()}`);
-  }
-
-  return segs.join(", ") + ".";
+  if (x.domicilio && x.domicilio.trim()) segs.push(`domicilio en ${x.domicilio.trim()}`);
+  if (x.telefono && x.telefono.trim()) segs.push(`teléfono ${x.telefono.trim()}`);
+  return segs.join(", ")+".";
 }
 
-// ====== UI: chips + lista y panel plegable ======
-const chips = $('#filiChips');
-const list  = $('#filiList');
-const accBody = $('#accBody');
-
+// ================= UI filiaciones (chips + lista) =================
+const chips=$('#filiChips'), list=$('#filiList'), accBody=$('#accBody');
 function aliasLabel(v){
-  const a = Array.isArray(v.aliases)? v.aliases[0] : "";
-  if (a) return a.length>12 ? a.slice(0,12)+"…" : a;
-  const n = (v.nombre||"").trim(); if(!n) return "sin nombre";
-  return n.length>12 ? n.slice(0,12)+"…" : n;
+  const n = [ (v.nombre||"").trim(), (v.apellidos||"").trim() ].filter(Boolean).join(" ");
+  return n ? (n.length>14 ? n.slice(0,14)+"…" : n) : "sin nombre";
 }
-
 function rebuildUI(){
   const m = loadMap();
-  // chips (compacto)
+  // Chips
   chips.innerHTML = "";
   for (const [id,v] of Object.entries(m)){
-    const div = document.createElement('div');
-    div.className = 'chip';
-    const span = document.createElement('span');
-    span.textContent = aliasLabel(v);
-    const btn = document.createElement('button');
-    btn.className = 'ins';
-    btn.textContent = '➕';
-    btn.title = 'Insertar en el cursor';
-    btn.onclick = ()=> {
-      const t = formatFichaFull(v);
-      if (t) insertAtCursor(txt, t+" ");
+    const d=document.createElement('div'); d.className='chip';
+    const s=document.createElement('span'); s.textContent=aliasLabel(v);
+    const bIns=document.createElement('button'); bIns.className='ins'; bIns.textContent='➕'; bIns.title='Insertar';
+    bIns.onclick=()=>{
+      const ficha = formatFichaFull(v); if(!ficha) return;
+      if (insertTarget === 'T') insertAtCursor(txt, ficha+" ");
+      else insertHtmlAtCursorInContentEditable(out, `<p>— Que ${ficha}</p>`);
     };
-    div.appendChild(span);
-    div.appendChild(btn);
-    chips.appendChild(div);
+    const bDel=document.createElement('button'); bDel.className='ins'; bDel.textContent='✖️'; bDel.title='Eliminar';
+    bDel.onclick=()=>{ const mm=loadMap(); delete mm[id]; saveMap(mm); rebuildUI(); setStatus('🗑️ Ficha eliminada.'); };
+    d.appendChild(s); d.appendChild(bIns); d.appendChild(bDel);
+    chips.appendChild(d);
   }
-  // lista completa (en panel)
+  // Lista (panel)
   list.innerHTML = "";
   for (const [id,v] of Object.entries(m)){
-    const row = document.createElement('div');
-    row.className = 'rowItem';
-    const left = document.createElement('div');
-    left.textContent = `${(v.nombre||"").toUpperCase()} ${(v.apellidos||"").toUpperCase()}`.trim() || id;
-    const right = document.createElement('div');
-    const bIns = document.createElement('button'); bIns.className='btn w'; bIns.textContent='➕ Insertar';
-    bIns.onclick = ()=>{ const t = formatFichaFull(v); if(t) insertAtCursor(txt, t+" "); };
-    right.appendChild(bIns);
-    row.appendChild(left); row.appendChild(right);
+    const row=document.createElement('div'); row.className='rowItem';
+    const l=document.createElement('div');
+    const display=[(v.nombre||"").toUpperCase(), (v.apellidos||"").toUpperCase()].filter(Boolean).join(" ").trim();
+    l.textContent=display || id;
+    const r=document.createElement('div');
+    const b1=document.createElement('button'); b1.className='btn w'; b1.textContent='➕ Insertar';
+    b1.onclick=()=>{ const ficha=formatFichaFull(v); if(!ficha) return;
+      if (insertTarget === 'T') insertAtCursor(txt, ficha+" ");
+      else insertHtmlAtCursorInContentEditable(out, `<p>— Que ${ficha}</p>`);
+    };
+    const b2=document.createElement('button'); b2.className='btn w'; b2.textContent='🗑️ Eliminar';
+    b2.onclick=()=>{ const mm=loadMap(); delete mm[id]; saveMap(mm); rebuildUI(); setStatus('🗑️ Ficha eliminada.'); };
+    r.appendChild(b1); r.appendChild(b2);
+    row.appendChild(l); row.appendChild(r);
     list.appendChild(row);
   }
 }
 rebuildUI();
 
-// ====== Plegar/Desplegar ======
-document.querySelector('.acc-h').addEventListener('click', (e)=>{
+// Plegar/Desplegar
+document.querySelector('.acc-h').addEventListener('click',(e)=>{
   if (e.target.id==='btnAddFili' || e.target.htmlFor==='fileFili') return;
   accBody.classList.toggle('show');
 });
 
-// ====== Añadir ficha ======
+// Añadir ficha
 const fiNombre=$('#fiNombre'), fiApellidos=$('#fiApellidos'), fiDoc=$('#fiDoc'), fiSexo=$('#fiSexo'),
-      fiLugar=$('#fiLugar'), fiFecha=$('#fiFecha'), fiPadres=$('#fiPadres'), fiDom=$('#fiDom'), fiTel=$('#fiTel'), fiAlias=$('#fiAlias');
+      fiLugar=$('#fiLugar'), fiFecha=$('#fiFecha'), fiPadres=$('#fiPadres'),
+      fiDom=$('#fiDom'), fiTel=$('#fiTel'), fiCondicion=$('#fiCondicion');
 
 $('#btnAddFili').addEventListener('click', ()=>{
   const id = "P"+Date.now();
@@ -238,51 +226,67 @@ $('#btnAddFili').addEventListener('click', ()=>{
     padres: fiPadres.value||"",
     domicilio: fiDom.value||"",
     telefono: fiTel.value||"",
-    aliases: (fiAlias.value||"").split(",").map(s=>s.trim()).filter(Boolean)
+    condicion: fiCondicion.value||""
   };
   const m = loadMap(); m[id]=v; saveMap(m);
-  fiNombre.value=fiApellidos.value=fiDoc.value=fiSexo.value=fiLugar.value=fiFecha.value=fiPadres.value=fiDom.value=fiTel.value=fiAlias.value="";
+  fiNombre.value=fiApellidos.value=fiDoc.value=fiSexo.value=fiLugar.value=fiFecha.value=fiPadres.value=fiDom.value=fiTel.value=""; fiCondicion.value="";
   rebuildUI();
   setStatus("✅ Ficha guardada.");
 });
 
-// ====== Importar JSON (objeto con llaves, sin arrays) ======
+// Importar JSON (acepta {doc, filiaciones:{...}}, objeto plano, o array)
 $('#fileFili').addEventListener('change', async (ev)=>{
   const f = ev.target.files?.[0]; if(!f) return;
   try{
-    const txt = await f.text();
-    const obj = JSON.parse(txt);
-    if (!obj || typeof obj!=="object") throw new Error("El JSON debe ser un objeto { id: {…}, … }");
+    const txtJ = await f.text();
+    const obj = JSON.parse(txtJ);
     const m = loadMap();
-    for (const [id,val] of Object.entries(obj)){
-      if (id==="texto") continue; // por si viene empaquetado
-      if (val && typeof val==="object") m[id]=val;
+
+    if (Array.isArray(obj)) {
+      for (const it of obj) {
+        if (it && typeof it==="object") {
+          const id = (it.id && String(it.id)) || ("P"+Date.now()+Math.floor(Math.random()*1000));
+          const {nombre,apellidos,documentacion,sexo,lugar_nacimiento,fecha_nacimiento,padres,domicilio,telefono,condicion} = it;
+          m[id] = { nombre,apellidos,documentacion,sexo,lugar_nacimiento,fecha_nacimiento,padres,domicilio,telefono,condicion };
+        }
+      }
+    } else if (obj && typeof obj==="object") {
+      if (typeof obj.doc === "string") { out.innerHTML = obj.doc; } // cargar redacción si viene
+      const src = obj.filiaciones && typeof obj.filiaciones==="object" ? obj.filiaciones : obj;
+      for (const [id,val] of Object.entries(src)) {
+        if (id==="texto" || id==="doc") continue;
+        if (val && typeof val==="object") {
+          const {nombre,apellidos,documentacion,sexo,lugar_nacimiento,fecha_nacimiento,padres,domicilio,telefono,condicion} = val;
+          m[id] = { nombre,apellidos,documentacion,sexo,lugar_nacimiento,fecha_nacimiento,padres,domicilio,telefono,condicion };
+        }
+      }
+    } else {
+      throw new Error("Formato JSON no válido");
     }
+
     saveMap(m);
     rebuildUI();
     setStatus("✅ Filiaciones importadas.");
-  }catch(e){ setStatus("❌ Error al importar: "+(e.message||e)); }
-  finally{ ev.target.value=""; }
+  }catch(e){
+    setStatus("❌ Error al importar: "+(e.message||e));
+  }finally{
+    ev.target.value="";
+  }
 });
 
-// ====== Descargar JSON { texto, filiaciones:{...} } ======
-$('#btnDownload').addEventListener('click', ()=>{
-  const payload = {
-    texto: txt.value||"",
-    filiaciones: loadMap()
-  };
-  const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = "compapol.json";
-  a.click();
-  setStatus("💾 JSON descargado.");
+// ================= Destino de inserción (Texto / Redacción) =================
+let insertTarget = 'T';
+const btnTarget = document.querySelector('#btnTarget');
+btnTarget.addEventListener('click', ()=>{
+  insertTarget = (insertTarget === 'T') ? 'R' : 'T';
+  btnTarget.textContent = insertTarget === 'T' ? '🎯T' : '🎯R';
+  btnTarget.title = insertTarget === 'T' ? 'Insertar en Texto' : 'Insertar en Redacción';
 });
 
-// ====== Grabación (servidor) iPhone-friendly ======
+// ================= Grabación (servidor) iPhone-friendly =================
 const btnRec = $('#btnRec'), btnRecStop = $('#btnRecStop'), fileAudio = $('#fileAudio');
-
 let mediaRecorder=null, recChunks=[], recStream=null;
+
 async function startRecording(){
   try{
     recStream = await navigator.mediaDevices.getUserMedia({ audio:true });
@@ -323,7 +327,7 @@ fileAudio.addEventListener('change', async ()=>{
   const f = fileAudio.files?.[0]; if(!f) return;
   try{
     setStatus('⏳ Transcribiendo…');
-    const fd = new FormData(); fd.append('file',f,f.name);
+    const fd = new FormData(); fd.append('file', f, f.name);
     const r = await fetch(`${API_BASE}/api/whisper`,{method:'POST', body:fd});
     if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
     const { text } = await r.json();
@@ -333,7 +337,7 @@ fileAudio.addEventListener('change', async ()=>{
   finally{ fileAudio.value=''; }
 });
 
-// Redactar
+// ================= Redactar / limpiar / copiar / descargar =================
 $('#btnDraft').addEventListener('click', async ()=>{
   const body = JSON.stringify({ texto: txt.value||"", filiaciones:[], objetos:[], fichas_resueltas:[] });
   try{
@@ -346,8 +350,8 @@ $('#btnDraft').addEventListener('click', async ()=>{
   }catch(e){ setStatus('❌ Error en redacción: '+(e.message||e)); }
 });
 
-// Limpiar, copiar
 $('#btnClear').addEventListener('click', ()=>{ txt.value=''; out.innerHTML=''; setStatus('🧹 Limpio.'); });
+
 $('#btnCopy').addEventListener('click', async ()=>{
   try{
     const plain = (out.innerHTML||'').replace(/<p>/g,'\n').replace(/<[^>]+>/g,'').trim();
@@ -356,8 +360,16 @@ $('#btnCopy').addEventListener('click', async ()=>{
   }catch{ setStatus('⚠️ No se pudo copiar.'); }
 });
 
-// Ping
-(async()=>{ try{ const r=await fetch(`${API_BASE}/healthz`); setLive(r.ok?'🟢':'🟠'); }catch{ setLive('🟠'); }})();
+// Descargar JSON principal: { doc, filiaciones:{...} }
+$('#btnDownload').addEventListener('click', ()=>{
+  const payload = { doc: out.innerHTML || "", filiaciones: loadMap() };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = "compapol.json";
+  a.click();
+  setStatus("💾 JSON descargado (doc + filiaciones).");
+});
 </script>
 </body>
 </html>
