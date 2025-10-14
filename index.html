@@ -30,20 +30,26 @@
   <header><h1>COMPAPOL · Dictado → Comparecencia</h1></header>
   <div class="wrap">
 
-    <!-- Controles de audio -->
+    <!-- Controles principales -->
     <div class="row-3" style="margin-bottom:10px;">
       <button id="btnMic" class="btn">🎤 Dictar (continuo)</button>
       <button id="btnStop" class="btn danger">⏹️ Parar</button>
       <button id="btnNuevo" class="btn">🔄 Nuevo</button>
     </div>
 
-    <div class="row" style="margin-bottom:10px;">
+    <!-- Grabación para servidor (funciona en iOS/Android) -->
+    <div class="row-3" style="margin-bottom:10px;">
+      <button id="btnRec" class="btn">🎧 Grabar (servidor)</button>
+      <button id="btnRecStop" class="btn danger">⏹️ Parar grabación</button>
       <button id="btnSubir" class="btn">⬆️ Subir audio</button>
       <input id="fileAudio" class="hidden" type="file" accept="audio/*">
+    </div>
+
+    <div class="row" style="margin-bottom:10px;">
       <button id="btnRedactar" class="btn ok">🛡️ Redactar estilo policial (API)</button>
     </div>
 
-    <p class="muted">Revisa el texto transcrito antes de convertirlo. El dictado es continuo hasta que pulses “Parar”.</p>
+    <p class="muted">Revisa el texto transcrito antes de convertirlo. El dictado es continuo y sólo se detiene al pulsar “Parar”. En iPhone usa “Grabar (servidor)”.</p>
 
     <textarea id="txtDictado" placeholder="Texto dictado (editable para corregir)…"></textarea>
     <div class="status" id="status"></div>
@@ -53,7 +59,7 @@
   </div>
 
   <script>
-    // <-- Ajusta aquí si cambias de dominio backend:
+    // Cambia aquí si mueves el backend
     const API_BASE = "https://compa-movil-backend.onrender.com";
 
     (async function(){
@@ -61,6 +67,8 @@
       const btnMic = $('#btnMic');
       const btnStop = $('#btnStop');
       const btnNuevo = $('#btnNuevo');
+      const btnRec = $('#btnRec');
+      const btnRecStop = $('#btnRecStop');
       const btnSubir = $('#btnSubir');
       const fileAudio = $('#fileAudio');
       const txtDictado = $('#txtDictado');
@@ -75,7 +83,7 @@
       const filiaciones = loadJSON("compapol.filiaciones", []);
       const objetos     = loadJSON("compapol.objetos", []);
 
-      // --- MIC: Web Speech API (dictado continuo)
+      // ====== Opción 1: Dictado continuo con Web Speech API (Android/Chrome) ======
       let recognition = null;
       let manuallyStopped = false;
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -85,13 +93,12 @@
         recognition.lang = 'es-ES';
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
-        recognition.continuous = true; // <- clave: modo continuo (no corta al dejar de hablar)
+        recognition.continuous = true; // modo continuo
 
         recognition.onstart = ()=>{
           status.textContent = '🎙️ Dictando (continuo)… Pulsa ⏹️ Parar para detener.';
         };
         recognition.onresult = (e)=>{
-          // concatena cada resultado
           let chunk = '';
           for (let i = e.resultIndex; i < e.results.length; i++) {
             const t = e.results[i][0]?.transcript || '';
@@ -105,7 +112,7 @@
           status.textContent = '⚠️ Error micro: ' + (e.error || 'desconocido');
         };
         recognition.onend = ()=>{
-          // En continuo, algunos navegadores “cortan”. Si no se paró manualmente, relanzamos.
+          // Si el navegador corta, relanzamos salvo que el usuario haya parado.
           if (!manuallyStopped) {
             try { recognition.start(); } catch {}
           } else {
@@ -113,8 +120,9 @@
           }
         };
       } else {
+        // iOS/Safari no soporta SpeechRecognition
         btnMic.classList.add('warn');
-        btnMic.textContent = '🎤 No hay micro nativo (usa “Subir audio”)';
+        btnMic.textContent = '🎤 No disponible (usa “Grabar (servidor)”)';
       }
 
       btnMic.addEventListener('click', ()=>{
@@ -123,7 +131,6 @@
         try { recognition.start(); } catch(e){ /* ignore double start */ }
       });
 
-      // --- Botón Parar dictado
       btnStop.addEventListener('click', ()=>{
         if (recognition) {
           manuallyStopped = true;
@@ -131,14 +138,76 @@
         }
       });
 
-      // --- Botón Nuevo / Limpiar
       btnNuevo.addEventListener('click', ()=>{
         txtDictado.value = '';
         salida.innerHTML = '';
         status.textContent = '🧹 Campos limpios. Listo para nuevo dictado.';
       });
 
-      // --- Subida de audio → /api/whisper (backend)
+      // ====== Opción 2: Grabación con MediaRecorder → servidor (iOS/Android) ======
+      let mediaRecorder = null;
+      let recChunks = [];
+      let recStream = null;
+
+      async function startRecording() {
+        try {
+          recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+                     : MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4'
+                     : 'audio/webm';
+          mediaRecorder = new MediaRecorder(recStream, { mimeType: mime });
+          recChunks = [];
+
+          mediaRecorder.ondataavailable = (e)=> { if (e.data && e.data.size) recChunks.push(e.data); };
+          mediaRecorder.onstart = ()=> { status.textContent = '🔴 Grabando… Pulsa “⏹️ Parar grabación” para finalizar.'; };
+          mediaRecorder.onerror = (e)=> { status.textContent = '⚠️ Error grabación: ' + (e.error?.message || e.message || 'desconocido'); };
+          mediaRecorder.onstop = async ()=>{
+            try {
+              const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+              const ext  = blob.type.includes('mp4') ? 'm4a' : (blob.type.split('/')[1] || 'webm');
+              const file = new File([blob], `grabacion.${ext}`, { type: blob.type });
+
+              status.textContent = '⏳ Enviando audio al servidor para transcribir…';
+              const fd = new FormData();
+              fd.append('file', file, file.name);
+
+              const r = await fetch(`${API_BASE}/api/whisper`, { method:'POST', body: fd });
+              if (!r.ok) throw new Error('HTTP '+r.status);
+              const { text } = await r.json();
+              txtDictado.value = text || '';
+              status.textContent = '✅ Transcripción lista. Revisa y corrige si hace falta.';
+            } catch (err) {
+              status.textContent = '❌ Error al transcribir: ' + err.message;
+            } finally {
+              recStream?.getTracks()?.forEach(t=>t.stop());
+              recStream = null;
+              mediaRecorder = null;
+              recChunks = [];
+            }
+          };
+
+          mediaRecorder.start(1000); // trozos cada 1s
+        } catch (err) {
+          status.textContent = '❌ No se pudo acceder al micrófono: ' + (err.message || err.name || 'permiso denegado');
+        }
+      }
+
+      function stopRecording() {
+        try {
+          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+          } else {
+            status.textContent = 'ℹ️ No hay grabación activa.';
+          }
+        } catch (e) {
+          status.textContent = '⚠️ Error al detener grabación.';
+        }
+      }
+
+      btnRec.addEventListener('click', startRecording);
+      btnRecStop.addEventListener('click', stopRecording);
+
+      // ====== Subir archivo de audio manual ======
       btnSubir.addEventListener('click', ()=> fileAudio.click());
       fileAudio.addEventListener('change', async ()=>{
         const f = fileAudio.files?.[0];
@@ -159,7 +228,7 @@
         }
       });
 
-      // --- Redacción policial → /api/police-draft (backend)
+      // ====== Redacción policial ======
       $('#btnRedactar').addEventListener('click', async ()=>{
         const texto = (txtDictado.value || '').trim();
         if (!texto) { status.textContent = 'Escribe o dicta algo antes de redactar.'; return; }
