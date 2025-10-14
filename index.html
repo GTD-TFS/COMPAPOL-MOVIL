@@ -1,127 +1,186 @@
 <!doctype html>
 <html lang="es">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Compapol · Dictado → Comparecencia</title>
-<style>
-  body { margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#0b1220; color:#e5e7eb; }
-  header { position:sticky; top:0; background:#111827; padding:12px 16px; border-bottom:1px solid #28324a; }
-  h1 { margin:0; font-size:18px; }
-  .wrap { padding:14px; max-width:720px; margin:0 auto; }
-  .btn { width:100%; padding:14px; margin:8px 0; border:1px solid #28324a; border-radius:12px; background:#1f2937; color:#e5e7eb; font-size:16px; }
-  .btn:active { transform:scale(.99); }
-  .ok { border-color:#16a34a; }
-  .warn { border-color:#f59e0b; }
-  textarea { width:100%; min-height:160px; padding:12px; border-radius:12px; border:1px solid #28324a; background:#0f172a; color:#e5e7eb; font-size:15px; }
-  .out { min-height:200px; }
-  .row { display:grid; gap:10px; }
-  .muted { color:#9ca3af; font-size:13px; }
-  .hidden { display:none; }
-  .status { font-size:13px; margin-top:6px; min-height:18px; }
-</style>
-<header><h1>COMPAPOL · Dictado → Comparecencia</h1></header>
-<div class="wrap">
-  <div class="row">
-    <button id="btnMic" class="btn">🎤 Dictar (transcribir)</button>
-    <input id="fileAudio" class="hidden" type="file" accept="audio/*">
-    <button id="btnSubir" class="btn">⬆️ Subir audio (si no hay micrófono)</button>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Compapol · Dictado → Comparecencia</title>
+  <style>
+    body { margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#0b1220; color:#e5e7eb; }
+    header { position:sticky; top:0; background:#111827; padding:12px 16px; border-bottom:1px solid #28324a; z-index:10; }
+    h1 { margin:0; font-size:18px; }
+    .wrap { padding:14px; max-width:720px; margin:0 auto; }
+    .row { display:grid; gap:10px; grid-template-columns:1fr 1fr; }
+    .row-3 { display:grid; gap:10px; grid-template-columns:1fr 1fr 1fr; }
+    .btn { width:100%; padding:14px; border:1px solid #28324a; border-radius:12px; background:#1f2937; color:#e5e7eb; font-size:16px; }
+    .btn:active { transform:scale(.99); }
+    .ok { border-color:#16a34a; }
+    .warn { border-color:#f59e0b; }
+    .danger { border-color:#ef4444; }
+    textarea { width:100%; min-height:160px; padding:12px; border-radius:12px; border:1px solid #28324a; background:#0f172a; color:#e5e7eb; font-size:15px; }
+    .out { min-height:200px; background:#0f172a; border:1px solid #28324a; border-radius:12px; padding:12px; }
+    .muted { color:#9ca3af; font-size:13px; }
+    .status { font-size:13px; margin-top:6px; min-height:18px; }
+    .hidden { display:none; }
+    @media (max-width:520px){
+      .row, .row-3 { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header><h1>COMPAPOL · Dictado → Comparecencia</h1></header>
+  <div class="wrap">
+
+    <!-- Controles de audio -->
+    <div class="row-3" style="margin-bottom:10px;">
+      <button id="btnMic" class="btn">🎤 Dictar (continuo)</button>
+      <button id="btnStop" class="btn danger">⏹️ Parar</button>
+      <button id="btnNuevo" class="btn">🔄 Nuevo</button>
+    </div>
+
+    <div class="row" style="margin-bottom:10px;">
+      <button id="btnSubir" class="btn">⬆️ Subir audio</button>
+      <input id="fileAudio" class="hidden" type="file" accept="audio/*">
+      <button id="btnRedactar" class="btn ok">🛡️ Redactar estilo policial (API)</button>
+    </div>
+
+    <p class="muted">Revisa el texto transcrito antes de convertirlo. El dictado es continuo hasta que pulses “Parar”.</p>
+
+    <textarea id="txtDictado" placeholder="Texto dictado (editable para corregir)…"></textarea>
+    <div class="status" id="status"></div>
+
+    <h3>Salida</h3>
+    <div id="salida" class="out"></div>
   </div>
 
-  <p class="muted">Revisa el texto transcrito antes de convertirlo.</p>
-  <textarea id="txtDictado" placeholder="Texto dictado (editable para corregir)…"></textarea>
+  <script>
+    // <-- Ajusta aquí si cambias de dominio backend:
+    const API_BASE = "https://compa-movil-backend.onrender.com";
 
-  <button id="btnRedactar" class="btn ok">🛡️ Redactar estilo policial (API)</button>
-  <div class="status" id="status"></div>
+    (async function(){
+      const $ = (s)=>document.querySelector(s);
+      const btnMic = $('#btnMic');
+      const btnStop = $('#btnStop');
+      const btnNuevo = $('#btnNuevo');
+      const btnSubir = $('#btnSubir');
+      const fileAudio = $('#fileAudio');
+      const txtDictado = $('#txtDictado');
+      const salida = $('#salida');
+      const status = $('#status');
 
-  <h3>Salida</h3>
-  <div id="salida" class="out" style="background:#0f172a; border:1px solid #28324a; border-radius:12px; padding:12px;"></div>
-</div>
+      // Carga de datos previos
+      function loadJSON(key, fallback){
+        try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
+        catch(e){ return fallback; }
+      }
+      const filiaciones = loadJSON("compapol.filiaciones", []);
+      const objetos     = loadJSON("compapol.objetos", []);
 
-<script>
-(async function(){
-  const $ = (s)=>document.querySelector(s);
-  const btnMic = $('#btnMic');
-  const btnSubir = $('#btnSubir');
-  const fileAudio = $('#fileAudio');
-  const txtDictado = $('#txtDictado');
-  const salida = $('#salida');
-  const status = $('#status');
+      // --- MIC: Web Speech API (dictado continuo)
+      let recognition = null;
+      let manuallyStopped = false;
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  // Carga de datos previos
-  function loadJSON(key, fallback){
-    try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
-    catch(e){ return fallback; }
-  }
-  const filiaciones = loadJSON("compapol.filiaciones", []);
-  const objetos     = loadJSON("compapol.objetos", []);
+      if (SR) {
+        recognition = new SR();
+        recognition.lang = 'es-ES';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+        recognition.continuous = true; // <- clave: modo continuo (no corta al dejar de hablar)
 
-  // --- MIC: Web Speech API si existe (Chrome/Android). En iOS suele no estar.
-  let recognition = null;
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (SR) {
-    recognition = new SR();
-    recognition.lang = 'es-ES';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (e)=>{
-      const t = e.results[0][0].transcript || '';
-      txtDictado.value = (txtDictado.value ? (txtDictado.value.trim() + ' ') : '') + t;
-    };
-    recognition.onstart = ()=> status.textContent = '🎙️ Escuchando… habla claro, pausado.';
-    recognition.onend   = ()=> status.textContent = '✅ Fin de dictado. Revisa el texto.';
-    recognition.onerror = (e)=> status.textContent = '⚠️ Error micro: '+(e.error||'desconocido');
-  } else {
-    btnMic.classList.add('warn');
-    btnMic.textContent = '🎤 No hay micro nativo (usa “Subir audio”)';
-  }
+        recognition.onstart = ()=>{
+          status.textContent = '🎙️ Dictando (continuo)… Pulsa ⏹️ Parar para detener.';
+        };
+        recognition.onresult = (e)=>{
+          // concatena cada resultado
+          let chunk = '';
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const t = e.results[i][0]?.transcript || '';
+            if (t) chunk += (t.trim() + ' ');
+          }
+          if (chunk) {
+            txtDictado.value = (txtDictado.value ? (txtDictado.value.trim() + ' ') : '') + chunk.trim();
+          }
+        };
+        recognition.onerror = (e)=>{
+          status.textContent = '⚠️ Error micro: ' + (e.error || 'desconocido');
+        };
+        recognition.onend = ()=>{
+          // En continuo, algunos navegadores “cortan”. Si no se paró manualmente, relanzamos.
+          if (!manuallyStopped) {
+            try { recognition.start(); } catch {}
+          } else {
+            status.textContent = '🛑 Dictado detenido.';
+          }
+        };
+      } else {
+        btnMic.classList.add('warn');
+        btnMic.textContent = '🎤 No hay micro nativo (usa “Subir audio”)';
+      }
 
-  btnMic.addEventListener('click', ()=>{
-    if (!recognition) { status.textContent = 'Este navegador no permite dictado directo.'; return; }
-    try { recognition.start(); } catch(e){ /* ignore double start */ }
-  });
-
-  // --- Subida de audio → /api/whisper
-  btnSubir.addEventListener('click', ()=> fileAudio.click());
-  fileAudio.addEventListener('change', async ()=>{
-    const f = fileAudio.files?.[0];
-    if (!f) return;
-    status.textContent = '⏳ Transcribiendo audio…';
-    try {
-      const fd = new FormData();
-      fd.append('file', f, f.name);
-      const r = await fetch('/api/whisper', { method:'POST', body: fd });
-      if (!r.ok) throw new Error('HTTP '+r.status);
-      const { text } = await r.json();
-      txtDictado.value = text || '';
-      status.textContent = '✅ Transcripción lista. Revisa y corrige si hace falta.';
-    } catch(err){
-      status.textContent = '❌ Error al transcribir: '+err.message;
-    } finally {
-      fileAudio.value = '';
-    }
-  });
-
-  // --- Redacción policial → /api/police-draft
-  $('#btnRedactar').addEventListener('click', async ()=>{
-    const texto = (txtDictado.value || '').trim();
-    if (!texto) { status.textContent = 'Escribe o dicta algo antes de redactar.'; return; }
-    status.textContent = '⏳ Redactando comparecencia…';
-    salida.innerHTML = '';
-    try {
-      const body = JSON.stringify({ texto, filiaciones, objetos });
-      const r = await fetch('/api/police-draft', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body
+      btnMic.addEventListener('click', ()=>{
+        if (!recognition) { status.textContent = 'Este navegador no permite dictado directo.'; return; }
+        manuallyStopped = false;
+        try { recognition.start(); } catch(e){ /* ignore double start */ }
       });
-      if (!r.ok) throw new Error('HTTP '+r.status);
-      const { html } = await r.json();
-      salida.innerHTML = html || '<em>(Sin contenido devuelto)</em>';
-      status.textContent = '✅ Comparecencia generada.';
-    } catch(err){
-      status.textContent = '❌ Error en redacción: '+err.message;
-    }
-  });
-})();
-</script>
+
+      // --- Botón Parar dictado
+      btnStop.addEventListener('click', ()=>{
+        if (recognition) {
+          manuallyStopped = true;
+          try { recognition.stop(); } catch {}
+        }
+      });
+
+      // --- Botón Nuevo / Limpiar
+      btnNuevo.addEventListener('click', ()=>{
+        txtDictado.value = '';
+        salida.innerHTML = '';
+        status.textContent = '🧹 Campos limpios. Listo para nuevo dictado.';
+      });
+
+      // --- Subida de audio → /api/whisper (backend)
+      btnSubir.addEventListener('click', ()=> fileAudio.click());
+      fileAudio.addEventListener('change', async ()=>{
+        const f = fileAudio.files?.[0];
+        if (!f) return;
+        status.textContent = '⏳ Transcribiendo audio…';
+        try {
+          const fd = new FormData();
+          fd.append('file', f, f.name);
+          const r = await fetch(`${API_BASE}/api/whisper`, { method:'POST', body: fd });
+          if (!r.ok) throw new Error('HTTP '+r.status);
+          const { text } = await r.json();
+          txtDictado.value = text || '';
+          status.textContent = '✅ Transcripción lista. Revisa y corrige si hace falta.';
+        } catch(err){
+          status.textContent = '❌ Error al transcribir: '+err.message;
+        } finally {
+          fileAudio.value = '';
+        }
+      });
+
+      // --- Redacción policial → /api/police-draft (backend)
+      $('#btnRedactar').addEventListener('click', async ()=>{
+        const texto = (txtDictado.value || '').trim();
+        if (!texto) { status.textContent = 'Escribe o dicta algo antes de redactar.'; return; }
+        status.textContent = '⏳ Redactando comparecencia…';
+        salida.innerHTML = '';
+        try {
+          const body = JSON.stringify({ texto, filiaciones, objetos });
+          const r = await fetch(`${API_BASE}/api/police-draft`, {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body
+          });
+          if (!r.ok) throw new Error('HTTP '+r.status);
+          const { html } = await r.json();
+          salida.innerHTML = html || '<em>(Sin contenido devuelto)</em>';
+          status.textContent = '✅ Comparecencia generada.';
+        } catch(err){
+          status.textContent = '❌ Error en redacción: '+err.message;
+        }
+      });
+    })();
+  </script>
+</body>
 </html>
