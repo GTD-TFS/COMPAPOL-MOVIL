@@ -8,7 +8,7 @@
     body { margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#0b1220; color:#e5e7eb; }
     header { position:sticky; top:0; background:#111827; padding:12px 16px; border-bottom:1px solid #28324a; z-index:10; }
     h1 { margin:0; font-size:18px; }
-    .wrap { padding:14px; max-width:720px; margin:0 auto; }
+    .wrap { padding:14px; max-width:760px; margin:0 auto; }
     .row { display:grid; gap:10px; grid-template-columns:1fr 1fr; }
     .row-3 { display:grid; gap:10px; grid-template-columns:1fr 1fr 1fr; }
     .btn { width:100%; padding:14px; border:1px solid #28324a; border-radius:12px; background:#1f2937; color:#e5e7eb; font-size:16px; }
@@ -21,9 +21,7 @@
     .muted { color:#9ca3af; font-size:13px; }
     .status { font-size:13px; margin-top:6px; min-height:18px; }
     .hidden { display:none; }
-    @media (max-width:520px){
-      .row, .row-3 { grid-template-columns:1fr; }
-    }
+    @media (max-width:520px){ .row, .row-3 { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -42,17 +40,23 @@
       <button id="btnRec" class="btn">🎧 Grabar (servidor)</button>
       <button id="btnRecStop" class="btn danger">⏹️ Parar grabación</button>
       <button id="btnSubir" class="btn">⬆️ Subir audio</button>
-      <!-- Importante: capture="microphone" para forzar micro nativo -->
       <input id="fileAudio" class="hidden" type="file" accept="audio/*" capture="microphone">
+    </div>
+
+    <!-- Filiaciones -->
+    <div class="row-3" style="margin-bottom:10px;">
+      <button id="btnImportFili" class="btn">📥 Importar filiaciones (JSON)</button>
+      <button id="btnVerFili" class="btn">👁️ Ver filiaciones</button>
+      <input id="fileFili" class="hidden" type="file" accept="application/json">
     </div>
 
     <div class="row" style="margin-bottom:10px;">
       <button id="btnRedactar" class="btn ok">🛡️ Redactar estilo policial (API)</button>
+      <button id="btnCopy" class="btn">📋 Copiar salida</button>
     </div>
 
     <p class="muted">
-      Revisa el texto transcrito antes de convertirlo. El dictado es continuo y sólo se detiene al pulsar “Parar”.<br>
-      En iPhone usa “Grabar (servidor)” o “Subir audio”.
+      El dictado continuo solo funciona en Android/Chrome. En iPhone usa “Grabar (servidor)” o “Subir audio”.
     </p>
 
     <textarea id="txtDictado" placeholder="Texto dictado (editable para corregir)…"></textarea>
@@ -63,216 +67,265 @@
   </div>
 
   <script>
-    // Cambia aquí si mueves el backend
+    // URL del backend (Render)
     const API_BASE = "https://compa-movil-backend.onrender.com";
 
-    (async function(){
+    (function(){
       const $ = (s)=>document.querySelector(s);
-      const btnMic = $('#btnMic');
-      const btnStop = $('#btnStop');
-      const btnNuevo = $('#btnNuevo');
-      const btnRec = $('#btnRec');
-      const btnRecStop = $('#btnRecStop');
-      const btnSubir = $('#btnSubir');
-      const fileAudio = $('#fileAudio');
-      const txtDictado = $('#txtDictado');
-      const salida = $('#salida');
-      const status = $('#status');
+      const btnMic = $('#btnMic'), btnStop = $('#btnStop'), btnNuevo = $('#btnNuevo');
+      const btnRec = $('#btnRec'), btnRecStop = $('#btnRecStop');
+      const btnSubir = $('#btnSubir'), fileAudio = $('#fileAudio');
+      const txtDictado = $('#txtDictado'), salida = $('#salida'), status = $('#status');
+      const btnImportFili = $('#btnImportFili'), btnVerFili = $('#btnVerFili'), fileFili = $('#fileFili');
+      const btnRedactar = $('#btnRedactar'), btnCopy = $('#btnCopy');
 
-      // Carga de datos previos
-      function loadJSON(key, fallback){
-        try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
-        catch(e){ return fallback; }
+      // ====== LocalStorage helpers ======
+      const LSK_FILI_DB = "compapol.filiacionesDb";
+      function getFiliDb(){ try{ return JSON.parse(localStorage.getItem(LSK_FILI_DB)||"[]"); }catch{return[];} }
+      function setFiliDb(arr){ localStorage.setItem(LSK_FILI_DB, JSON.stringify(arr||[])); }
+
+      // ====== Formateo de fichas SOLO con campos presentes en el dictado ======
+      function normalizaTexto(s){ return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); }
+
+      // Detecta si el dictado contiene una referencia a 'valor' (cadena o número)
+      function textoContiene(texto, valor){
+        if(!valor) return false;
+        const t = normalizaTexto(texto);
+        const v = normalizaTexto(String(valor));
+        if(/\d/.test(v)){ // si hay dígitos, busca la secuencia numérica
+          const num = v.replace(/\D+/g,"");
+          return num ? new RegExp(num.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).test(t.replace(/\D+/g,"")) : false;
+        }
+        // palabras
+        return t.includes(v);
       }
-      const filiaciones = loadJSON("compapol.filiaciones", []);
-      const objetos     = loadJSON("compapol.objetos", []);
 
-      // ====== Opción 1: Dictado continuo con Web Speech API (Android/Chrome). iOS NO. ======
-      let recognition = null;
-      let manuallyStopped = false;
+      // Dado el dictado y una ficha base, devuelve SOLO lo mencionado
+      function formatFichaParcial(dictado, base){
+        const piezas = [];
+
+        // Nombre y apellidos: se incluyen siempre si hubo mención (alias detectado previamente)
+        const nombre = (base.nombre||"").toUpperCase();
+        const apellidos = (base.apellidos||"").toUpperCase();
+        const encabezado = [nombre, apellidos].filter(Boolean).join(" ").trim();
+        if (encabezado) piezas.push(encabezado);
+
+        // Documentación si aparece en el dictado (“dni”, “pasaporte”, número, “indocumentado”/a)
+        if (base.documentacion){
+          const doc = String(base.documentacion);
+          if (textoContiene(dictado, doc) || /dni|pasaport|nie|indocumentad/i.test(dictado)) {
+            piezas.push(doc);
+          }
+        }
+
+        // Nacimiento (solo si aparece algo del lugar o la fecha en el dictado)
+        const lugar = base.lugar_nacimiento;
+        let fecha = base.fecha_nacimiento;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(fecha||"")) {
+          const [Y,M,D] = fecha.split("-");
+          fecha = `${D}/${M}/${Y}`;
+        }
+        const hayLugar = lugar && textoContiene(dictado, lugar);
+        const hayFecha = fecha && textoContiene(dictado, fecha);
+        if (hayLugar || hayFecha) {
+          const nac = (base.sexo||"").toUpperCase().startsWith("F") ? "nacida" :
+                      (base.sexo||"").toUpperCase().startsWith("M") ? "nacido" : "nacido/a";
+          const segs = [];
+          segs.push(nac);
+          if (hayLugar) segs.push(`en ${lugar}`);
+          if (hayFecha) segs.push(`el ${fecha}`);
+          piezas.push(segs.join(" "));
+        }
+
+        // Padres si aparecen (o parte de ellos) en el dictado
+        if (base.padres && textoContiene(dictado, base.padres)) {
+          const hijo = (base.sexo||"").toUpperCase().startsWith("F") ? "hija" :
+                       (base.sexo||"").toUpperCase().startsWith("M") ? "hijo" : "hijo/a";
+          piezas.push(`${hijo} de ${base.padres}`);
+        }
+
+        // Domicilio si aparece
+        if (base.domicilio && textoContiene(dictado, base.domicilio)) {
+          piezas.push(`domicilio en ${base.domicilio}`);
+        }
+
+        // Teléfono si aparece
+        if (base.telefono && textoContiene(dictado, base.telefono)) {
+          piezas.push(`teléfono ${base.telefono}`);
+        }
+
+        return piezas.length ? (piezas.join(", ") + ".") : "";
+      }
+
+      // Detecta alias en el dictado y devuelve fichas_resueltas (SOLO datos mencionados)
+      function detectarFichasEnTexto(dictado) {
+        const db = getFiliDb();
+        const t = normalizaTexto(dictado);
+        const usadas = new Set();
+        const fichas = [];
+        for (const f of db) {
+          const aliases = Array.isArray(f.aliases) ? f.aliases : [];
+          for (const a of aliases) {
+            const needle = normalizaTexto(String(a||"").trim());
+            if (!needle) continue;
+            const re = new RegExp(`\\b${needle.replace(/[.*+?^${}()|[\\]\\\\]/g,"\\$&")}\\b`, "i");
+            if (re.test(t)) {
+              if (!usadas.has(f.id)) {
+                usadas.add(f.id);
+                const parcial = formatFichaParcial(dictado, f);
+                if (parcial) fichas.push({ id:f.id, ficha: parcial });
+              }
+              break;
+            }
+          }
+        }
+        return fichas; // [{id, ficha}]
+      }
+
+      // ====== Web Speech (dictado continuo) ======
+      let recognition = null, manuallyStopped = false;
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
       if (SR) {
         recognition = new SR();
         recognition.lang = 'es-ES';
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
-        recognition.continuous = true; // modo continuo
-
-        recognition.onstart = ()=>{
-          status.textContent = '🎙️ Dictando (continuo)… Pulsa ⏹️ Parar para detener.';
-        };
+        recognition.continuous = true;
+        recognition.onstart = ()=> status.textContent = '🎙️ Dictando (continuo)… Pulsa ⏹️ Parar para detener.';
         recognition.onresult = (e)=>{
           let chunk = '';
           for (let i = e.resultIndex; i < e.results.length; i++) {
             const t = e.results[i][0]?.transcript || '';
             if (t) chunk += (t.trim() + ' ');
           }
-          if (chunk) {
-            txtDictado.value = (txtDictado.value ? (txtDictado.value.trim() + ' ') : '') + chunk.trim();
-          }
+          if (chunk) txtDictado.value = (txtDictado.value ? (txtDictado.value.trim() + ' ') : '') + chunk.trim();
         };
-        recognition.onerror = (e)=>{
-          status.textContent = '⚠️ Error micro: ' + (e.error || 'desconocido');
-        };
-        recognition.onend = ()=>{
-          // Si el navegador corta, relanzamos salvo que el usuario haya parado.
-          if (!manuallyStopped) {
-            try { recognition.start(); } catch {}
-          } else {
-            status.textContent = '🛑 Dictado detenido.';
-          }
+        recognition.onerror = (e)=> status.textContent = '⚠️ Error micro: ' + (e.error || 'desconocido');
+        recognition.onend = ()=> {
+          if (!manuallyStopped) { try { recognition.start(); } catch {} }
+          else { status.textContent = '🛑 Dictado detenido.'; }
         };
       } else {
-        // iOS/Safari no soporta SpeechRecognition
         btnMic.classList.add('warn');
         btnMic.textContent = '🎤 No disponible (usa “Grabar (servidor)” o “Subir audio”)';
-        // En móviles sin SR, que el botón de grabar abra directamente el selector nativo
         btnRec.addEventListener('click', ()=> fileAudio.click());
       }
 
-      btnMic.addEventListener('click', ()=>{
-        if (!recognition) { status.textContent = 'Este navegador no permite dictado directo.'; return; }
-        manuallyStopped = false;
-        try { recognition.start(); } catch(e){ /* ignore double start */ }
-      });
+      btnMic.addEventListener('click', ()=>{ if(!recognition){status.textContent='Este navegador no permite dictado directo.';return;} manuallyStopped=false; try{recognition.start();}catch{} });
+      btnStop.addEventListener('click', ()=>{ if(recognition){manuallyStopped=true; try{recognition.stop();}catch{} } });
+      btnNuevo.addEventListener('click', ()=>{ txtDictado.value=''; salida.innerHTML=''; status.textContent='🧹 Listo para nuevo dictado.'; });
 
-      btnStop.addEventListener('click', ()=>{
-        if (recognition) {
-          manuallyStopped = true;
-          try { recognition.stop(); } catch {}
-        }
-      });
-
-      btnNuevo.addEventListener('click', ()=>{
-        txtDictado.value = '';
-        salida.innerHTML = '';
-        status.textContent = '🧹 Campos limpios. Listo para nuevo dictado.';
-      });
-
-      // ====== Opción 2: Grabación con MediaRecorder → servidor (iOS/Android) ======
-      let mediaRecorder = null;
-      let recChunks = [];
-      let recStream = null;
-
-      async function startRecording() {
-        try {
-          recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-          // Elegir mime compatible; Safari se lleva mejor sin forzar si duda
-          let mime = '';
-          if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
-            if (MediaRecorder.isTypeSupported('audio/mp4'))  mime = 'audio/mp4';
-            else if (MediaRecorder.isTypeSupported('audio/webm')) mime = 'audio/webm';
+      // ====== MediaRecorder → servidor ======
+      let mediaRecorder=null, recChunks=[], recStream=null;
+      async function startRecording(){
+        try{
+          recStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+          let mime=''; if (window.MediaRecorder && MediaRecorder.isTypeSupported){
+            if (MediaRecorder.isTypeSupported('audio/mp4')) mime='audio/mp4';
+            else if (MediaRecorder.isTypeSupported('audio/webm')) mime='audio/webm';
           }
-          mediaRecorder = mime ? new MediaRecorder(recStream, { mimeType: mime })
-                               : new MediaRecorder(recStream);
-
+          mediaRecorder = mime ? new MediaRecorder(recStream,{mimeType:mime}) : new MediaRecorder(recStream);
           recChunks = [];
-
-          mediaRecorder.ondataavailable = (e)=> { if (e.data && e.data.size) recChunks.push(e.data); };
-          mediaRecorder.onstart = ()=> { status.textContent = '🔴 Grabando… Pulsa “⏹️ Parar grabación” para finalizar.'; };
-          mediaRecorder.onerror = (e)=> { status.textContent = '⚠️ Error grabación: ' + (e.error?.message || e.message || 'desconocido'); };
+          mediaRecorder.ondataavailable = (e)=>{ if(e.data && e.data.size) recChunks.push(e.data); };
+          mediaRecorder.onstart = ()=> status.textContent='🔴 Grabando… Pulsa “⏹️ Parar grabación”.';
+          mediaRecorder.onerror = (e)=> status.textContent='⚠️ Error grabación: '+(e.error?.message||e.message||'desconocido');
           mediaRecorder.onstop = async ()=>{
-            try {
+            try{
               const type = mediaRecorder.mimeType || (recChunks[0]?.type) || 'audio/mp4';
-              const blob = new Blob(recChunks, { type });
-              const ext  = type.includes('mp4') ? 'm4a'
-                         : type.includes('webm') ? 'webm'
-                         : type.includes('wav') ? 'wav'
-                         : 'm4a';
-              const file = new File([blob], `grabacion.${ext}`, { type });
-
-              status.textContent = '⏳ Enviando audio al servidor para transcribir…';
-              const fd = new FormData();
-              fd.append('file', file, file.name);
-
-              const r = await fetch(`${API_BASE}/api/whisper`, { method:'POST', body: fd });
-              if (!r.ok) {
-                let msg = 'HTTP ' + r.status;
-                try { const j = await r.json(); if (j?.error) msg += ' · ' + j.error; } catch {}
-                throw new Error(msg);
-              }
+              const blob = new Blob(recChunks,{type});
+              const ext = type.includes('mp4')?'m4a':type.includes('webm')?'webm':type.includes('wav')?'wav':'m4a';
+              const file = new File([blob],`grabacion.${ext}`,{type});
+              status.textContent='⏳ Enviando audio al servidor…';
+              const fd = new FormData(); fd.append('file',file,file.name);
+              const r = await fetch(`${API_BASE}/api/whisper`,{method:'POST',body:fd});
+              if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
               const { text } = await r.json();
               txtDictado.value = text || '';
-              status.textContent = '✅ Transcripción lista. Revisa y corrige si hace falta.';
-            } catch (err) {
-              status.textContent = '❌ Error al transcribir: ' + err.message;
-            } finally {
-              recStream?.getTracks()?.forEach(t=>t.stop());
-              recStream = null;
-              mediaRecorder = null;
-              recChunks = [];
-            }
+              status.textContent='✅ Transcripción lista. Revisa y corrige si hace falta.';
+            }catch(err){ status.textContent='❌ Error al transcribir: '+err.message; }
+            finally{ recStream?.getTracks()?.forEach(t=>t.stop()); recStream=null; mediaRecorder=null; recChunks=[]; }
           };
-
-          mediaRecorder.start(1000); // trozos cada 1s
-        } catch (err) {
-          status.textContent = '❌ No se pudo acceder al micrófono: ' + (err.message || err.name || 'permiso denegado');
-        }
+          mediaRecorder.start(1000);
+        }catch(err){ status.textContent='❌ No se pudo acceder al micrófono: '+(err.message||err.name||'permiso denegado'); }
       }
-
-      function stopRecording() {
-        try {
-          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.stop();
-          } else {
-            status.textContent = 'ℹ️ No hay grabación activa.';
-          }
-        } catch (e) {
-          status.textContent = '⚠️ Error al detener grabación.';
-        }
-      }
-
+      function stopRecording(){ try{ if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop(); else status.textContent='ℹ️ No hay grabación activa.'; }catch(e){ status.textContent='⚠️ Error al detener grabación.'; } }
       btnRec.addEventListener('click', startRecording);
       btnRecStop.addEventListener('click', stopRecording);
 
-      // ====== Subir archivo de audio manual (abre grabadora nativa en móvil) ======
+      // ====== Subir archivo ======
       btnSubir.addEventListener('click', ()=> fileAudio.click());
       fileAudio.addEventListener('change', async ()=>{
-        const f = fileAudio.files?.[0];
-        if (!f) return;
-        status.textContent = '⏳ Transcribiendo audio…';
-        try {
-          const fd = new FormData();
-          fd.append('file', f, f.name);
-          const r = await fetch(`${API_BASE}/api/whisper`, { method:'POST', body: fd });
-          if (!r.ok) {
-            let msg = 'HTTP ' + r.status;
-            try { const j = await r.json(); if (j?.error) msg += ' · ' + j.error; } catch {}
-            throw new Error(msg);
-          }
+        const f = fileAudio.files?.[0]; if(!f) return;
+        status.textContent='⏳ Transcribiendo audio…';
+        try{
+          const fd = new FormData(); fd.append('file', f, f.name);
+          const r = await fetch(`${API_BASE}/api/whisper`,{method:'POST', body:fd});
+          if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
           const { text } = await r.json();
           txtDictado.value = text || '';
-          status.textContent = '✅ Transcripción lista. Revisa y corrige si hace falta.';
-        } catch(err){
-          status.textContent = '❌ Error al transcribir: '+err.message;
-        } finally {
-          fileAudio.value = '';
-        }
+          status.textContent='✅ Transcripción lista.';
+        }catch(err){ status.textContent='❌ Error al transcribir: '+err.message; }
+        finally{ fileAudio.value=''; }
       });
 
-      // ====== Redacción policial ======
-      $('#btnRedactar').addEventListener('click', async ()=>{
-        const texto = (txtDictado.value || '').trim();
-        if (!texto) { status.textContent = 'Escribe o dicta algo antes de redactar.'; return; }
-        status.textContent = '⏳ Redactando comparecencia…';
-        salida.innerHTML = '';
-        try {
-          const body = JSON.stringify({ texto, filiaciones, objetos });
+      // ====== Filiaciones: importar/ver ======
+      btnImportFili.addEventListener('click', ()=> fileFili.click());
+      fileFili.addEventListener('change', async ()=>{
+        const f = fileFili.files?.[0]; if(!f) return;
+        try{
+          const txt = await f.text(); const json = JSON.parse(txt);
+          if(!Array.isArray(json)) throw new Error('El JSON debe ser un array');
+          setFiliDb(json);
+          alert(`Filiaciones cargadas: ${json.length}`);
+        }catch(e){ alert('Error al importar JSON: '+(e.message||e)); }
+        finally{ fileFili.value=''; }
+      });
+      btnVerFili.addEventListener('click', ()=>{
+        const db = getFiliDb();
+        alert(db.length ? db.map(x=> `${x.id||'id?'}: ${x.nombre||''} ${x.apellidos||''} [${(x.aliases||[]).join(', ')}]`).join("\n")
+                        : "No hay filiaciones cargadas");
+      });
+
+      // ====== Redactar ======
+      btnRedactar.addEventListener('click', async ()=>{
+        const texto = (txtDictado.value||'').trim();
+        if(!texto){ status.textContent='Escribe o dicta algo antes de redactar.'; return; }
+        status.textContent='⏳ Redactando comparecencia…';
+        salida.innerHTML='';
+
+        try{
+          const fichasDetectadas = detectarFichasEnTexto(texto); // [{id,ficha}]
+          const body = JSON.stringify({
+            texto,
+            filiaciones: [], // si tienes otro panel de filiaciones manuales, colócalas aquí
+            objetos: [],     // idem objetos
+            fichas_resueltas: fichasDetectadas.map(x=> x.ficha) // SOLO lo mencionado
+          });
+
           const r = await fetch(`${API_BASE}/api/police-draft`, {
             method:'POST',
             headers:{ 'Content-Type':'application/json' },
             body
           });
-          if (!r.ok) throw new Error('HTTP '+r.status);
+          if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
           const { html } = await r.json();
           salida.innerHTML = html || '<em>(Sin contenido devuelto)</em>';
-          status.textContent = '✅ Comparecencia generada.';
-        } catch(err){
-          status.textContent = '❌ Error en redacción: '+err.message;
+          status.textContent='✅ Comparecencia generada.';
+        }catch(err){
+          status.textContent='❌ Error en redacción: '+err.message;
         }
       });
+
+      // Copiar salida
+      btnCopy.addEventListener('click', async ()=>{
+        try{
+          const html = salida.innerHTML;
+          const textoPlano = html.replace(/<p>/g,'\n').replace(/<[^>]+>/g,'').trim();
+          await navigator.clipboard.writeText(textoPlano);
+          status.textContent = '📋 Copiado al portapapeles (texto plano).';
+        }catch{ status.textContent='⚠️ No se pudo copiar.'; }
+      });
+
     })();
   </script>
 </body>
