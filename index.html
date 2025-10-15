@@ -106,6 +106,13 @@
     background:linear-gradient(180deg,#0e2a25,#0b201b);
     font-size:14px; height:34px; padding:0 10px; border-radius:10px;
   }
+
+  /* Título de sección centrado (Versión Policial) */
+  .section-title{
+    margin:10px 0 6px;
+    text-align:center;
+    font-weight:700;
+  }
 </style>
 </head>
 <body>
@@ -174,7 +181,7 @@
   <textarea id="txt"></textarea>
   <div id="status" class="status"></div>
 
-  <h3 style="margin:10px 0 6px;">Versión Policial</h3>
+  <h3 class="section-title">Versión Policial</h3>
   <div id="out" class="out" contenteditable="true"></div>
 </div>
 
@@ -189,11 +196,14 @@ function setStatus(s){ statusEl.textContent = s; }
 function flashRed(el){ el.classList.add('flash-red'); setTimeout(()=>el.classList.remove('flash-red'), 1000); }
 
 /* ==================== STORAGE ==================== */
-const LSK_MAP   = "compapol.fili.map";
-const LSK_EXTRAS= "compapol.extras";
+const LSK_MAP   = "compapol.fili.map";   // visibles (hasta teléfono) para UI
+const LSK_FULL  = "compapol.fili.full";  // completas importadas (det•pol)
+const LSK_EXTRAS= "compapol.extras";     // otros campos top-level importados
 
 function loadMap(){ try{ const v=JSON.parse(localStorage.getItem(LSK_MAP)||"{}"); return v&&typeof v==="object"?v:{}; }catch{ return {}; } }
 function saveMap(m){ localStorage.setItem(LSK_MAP, JSON.stringify(m||{})); }
+function loadFull(){ try{ const v=JSON.parse(localStorage.getItem(LSK_FULL)||"{}"); return v&&typeof v==="object"?v:{}; }catch{ return {}; } }
+function saveFull(m){ localStorage.setItem(LSK_FULL, JSON.stringify(m||{})); }
 function loadExtras(){ try{ const v=JSON.parse(localStorage.getItem(LSK_EXTRAS)||"{}"); return v&&typeof v==="object"?v:{}; }catch{ return {}; } }
 function saveExtras(e){ localStorage.setItem(LSK_EXTRAS, JSON.stringify(e||{})); }
 
@@ -387,26 +397,27 @@ $('#btnAddFili').addEventListener('click', (ev)=>{
   rebuildFiliList(); setStatus("✅ Ficha guardada."); closeAccordion();
 });
 
-/* Importar (solo visible al abrir porque está dentro del cuerpo) */
+/* Importar (vincula la ficha COMPLETA al mismo id que la visible; no duplica) */
 fileFili.addEventListener('change', async (ev)=>{
   const f = ev.target.files?.[0]; if(!f) return;
   try{
     const txt = await f.text();
     const obj = JSON.parse(txt);
-    const m = loadMap(); let extras = loadExtras();
+    const m = loadMap(); const fullMap = loadFull();
+    let extras = loadExtras();
 
     const addOne = (raw) => {
-      const v = toInternalFromSpanish(raw);
+      const v = toInternalFromSpanish(raw); // visible/normalizada para UI
       const hasSome = Object.values(v).some(x => (x||"").toString().trim().length);
       if (!hasSome) return;
       const id = "P"+Date.now()+Math.floor(Math.random()*1000);
-      m[id] = v;
+      m[id] = v;           // visible
+      fullMap[id] = raw;   // completa importada (det•pol) vinculada por el mismo id
     };
 
     if (Array.isArray(obj)) {
       for (const it of obj) if (it && typeof it==="object") addOne(it);
     } else if (obj && typeof obj==="object") {
-      // Extras top-level (det • pol)
       const knownTop = new Set(["doc","filiaciones","objects","extras","generales"]);
       const extraTop = {};
       for (const [k,v] of Object.entries(obj)){
@@ -432,7 +443,7 @@ fileFili.addEventListener('change', async (ev)=>{
       throw new Error("Formato JSON no válido");
     }
 
-    saveMap(m); rebuildFiliList(); setStatus("✅ Datos importados."); closeAccordion();
+    saveMap(m); saveFull(fullMap); rebuildFiliList(); setStatus("✅ Datos importados."); closeAccordion();
   }catch(e){
     setStatus("❌ Error al importar: "+(e.message||e));
   }finally{
@@ -505,34 +516,58 @@ $('#btnClear').addEventListener('click', (ev)=>{
   txt.value=''; out.innerHTML=''; setStatus('🧹 Limpio.');
 });
 
-/* Descarga JSON: incluye 'generales' a partir del detenido principal */
+/* Descarga JSON: usa la FICHA COMPLETA si existe, sin duplicar; marca principal y genera 'generales' */
 $('#btnDownload').addEventListener('click', (ev)=>{
   flashRed(ev.currentTarget); closeAccordion();
 
-  // Fichas normalizadas a etiquetas en español
-  const arr = Object.values(loadMap()).map(v=>toSpanishFromInternal(normalizeFicha(v)));
+  const mapVisible = loadMap();     // visibles (hasta teléfono)
+  const mapFull    = loadFull();    // completas importadas
+  const extras     = loadExtras();
 
-  // Elegimos "principal": primera con Condición=detenido (minúsculas). Si no hay, 0.
+  // Construimos array respetando orden de inserción; si hay completa, exportamos esa
+  const arr = [];
+  for (const [id, vis] of Object.entries(mapVisible)) {
+    const full = mapFull[id];
+    if (full && typeof full === "object") {
+      // Normalizamos campos esenciales sin perder el resto:
+      const norm = toInternalFromSpanish(full);
+      const exported = { ...full };
+      exported["Nombre"] = norm.nombre || exported["Nombre"] || "";
+      exported["Apellidos"] = (norm.apellidos || exported["Apellidos"] || "").toUpperCase();
+      exported["Sexo"] = norm.sexo || exported["Sexo"] || "";
+      exported["Nacionalidad"] = norm.nacionalidad || exported["Nacionalidad"] || "";
+      exported["Tipo de documento"] = norm.tipo_doc || exported["Tipo de documento"] || "";
+      exported["Nº Documento"] = norm.num_doc || exported["Nº Documento"] || "";
+      exported["Fecha de nacimiento"] = norm.fecha_nacimiento || exported["Fecha de nacimiento"] || "";
+      exported["Lugar de nacimiento"] = norm.lugar_nacimiento || exported["Lugar de nacimiento"] || "";
+      exported["Nombre de los Padres"] = norm.padres || exported["Nombre de los Padres"] || "";
+      exported["Domicilio"] = norm.domicilio || exported["Domicilio"] || "";
+      exported["Teléfono"] = norm.telefono || exported["Teléfono"] || "";
+      // Condición la tomamos de la visible (UI) si estuviera:
+      exported["Condición"] = (vis.condicion || exported["Condición"] || "").toLowerCase();
+      arr.push(exported);
+    } else {
+      arr.push(toSpanishFromInternal(normalizeFicha(vis)));
+    }
+  }
+
+  // Elegimos principal: primera con Condición="detenido" (minúsculas). Si no hay, 0.
   let idxPri = arr.findIndex(f => (f["Condición"]||"").toLowerCase() === "detenido");
   if (idxPri < 0) idxPri = 0;
 
-  // Construimos 'generales' a partir del principal + extras (si existen)
-  const principal = {...arr[idxPri]};
-  const extras = loadExtras();
-  const generales = {
-    ...principal,
-    ...extras
-  };
-  // Opcional: marca de principal (para parsers que la miran)
-  principal["filiacionTipo"] = "principal";
+  // Marcamos la misma ficha como principal
+  const principal = { ...arr[idxPri], filiacionTipo: "principal" };
 
-  // Colocamos la principal al inicio del array (si no lo está)
+  // Reordenamos para que la principal vaya primera (sin duplicar)
   if (idxPri > 0) {
     arr.splice(idxPri,1);
     arr.unshift(principal);
   } else {
     arr[0] = principal;
   }
+
+  // 'generales' = principal + extras (si los hubiera)
+  const generales = { ...principal, ...extras };
 
   // Payload final
   const payload = {
