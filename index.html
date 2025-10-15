@@ -38,11 +38,12 @@
   .list{ margin-top:8px; display:grid; gap:6px; }
   .rowItem{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; background:#101237; border:1px solid var(--line); border-radius:10px; font-size:13px; }
   .muted{ color:var(--muted); font-size:12px; }
+  .tag{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; background:#221155; border:1px solid var(--line); border-radius:999px; font-size:12px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>COMPAPOL · iPhone</h1>
+  <h1>COMPAPOL · AWAY</h1>
   <div id="live" class="muted"></div>
 </header>
 <div class="wrap">
@@ -57,13 +58,28 @@
     <button id="btnClear" class="btn" title="Limpiar">🧹</button>
     <button id="btnDraft" class="btn" title="Redactar policial">⚙️</button>
     <button id="btnCopy" class="btn" title="Copiar salida">📋</button>
-    <button id="btnDownload" class="btn" title="Descargar JSON (doc + filiaciones)">💾</button>
+    <button id="btnDownload" class="btn" title="Descargar JSON">💾</button>
+    <button id="btnObj" class="btn" title="Objetos intervenidos">🧳</button>
   </div>
 
-  <!-- Tira de filiaciones (chips) con ➕T / ➕R / ✖️ -->
+  <!-- CHIPS de accesos directos (ahora independientes; se pueden borrar sin borrar la ficha) -->
   <div class="chipbar" id="filiChips"></div>
 
-  <!-- Panel plegable: añadir / importar filiaciones -->
+  <!-- Panel OBJETOS -->
+  <div class="accordion" id="accObj" style="margin:6px 0 10px;">
+    <div class="acc-h">
+      <span>Objetos ▾</span>
+      <div class="row">
+        <input id="objTxt" type="text" placeholder="Añadir objeto (p. ej. una cartera)" style="width:200px;">
+        <button id="btnObjAdd" class="btn w" title="Añadir objeto">➕ Añadir</button>
+      </div>
+    </div>
+    <div class="acc-c" id="accObjBody">
+      <div class="list" id="objList"></div>
+    </div>
+  </div>
+
+  <!-- Panel FILIACIONES -->
   <div class="accordion" style="margin:6px 0 10px;">
     <div class="acc-h">
       <span>Filiaciones ▾</span>
@@ -74,7 +90,7 @@
       </div>
     </div>
     <div class="acc-c" id="accBody">
-      <!-- Campos EXACTOS que pediste -->
+      <!-- Campos EXACTOS -->
       <div class="grid2">
         <select id="fiCondicion">
           <option value="">(Condición)</option>
@@ -111,7 +127,8 @@
     </div>
   </div>
 
-  <textarea id="txt" placeholder="Dicta o pega aquí el texto; inserta fichas con ➕ y pulsa ⚙️ para convertir a estilo policial."></textarea>
+  <!-- Área de dictado (sin placeholder) -->
+  <textarea id="txt"></textarea>
   <div id="status" class="status"></div>
 
   <h3 style="margin:10px 0 6px;">Salida</h3>
@@ -128,13 +145,17 @@ const live = $('#live'), statusEl = $('#status'), txt = $('#txt'), out = $('#out
 function setStatus(s){ statusEl.textContent = s; }
 function setLive(s){ live.textContent = s; }
 
-/* ==================== STORAGE (objeto con llaves) ==================== */
-const LSK = "compapol.fili.map"; // { id: {campos}, ... }
-function loadMap(){
-  try{ const v = JSON.parse(localStorage.getItem(LSK)||"{}"); return v && typeof v==="object" ? v : {}; }
-  catch{ return {}; }
-}
-function saveMap(m){ localStorage.setItem(LSK, JSON.stringify(m||{})); }
+/* ==================== STORAGE ==================== */
+const LSK_MAP = "compapol.fili.map";       // mapa de fichas { id: {...} }
+const LSK_SHORT = "compapol.fili.shortcuts"; // lista de ids con chip visible
+const LSK_OBJS = "compapol.objects";       // array de strings
+
+function loadMap(){ try{ const v=JSON.parse(localStorage.getItem(LSK_MAP)||"{}"); return v&&typeof v==="object"?v:{}; }catch{ return {}; } }
+function saveMap(m){ localStorage.setItem(LSK_MAP, JSON.stringify(m||{})); }
+function loadShort(){ try{ const v=JSON.parse(localStorage.getItem(LSK_SHORT)||"[]"); return Array.isArray(v)?v:[]; }catch{ return []; } }
+function saveShort(a){ localStorage.setItem(LSK_SHORT, JSON.stringify(Array.isArray(a)?a:[])); }
+function loadObjs(){ try{ const v=JSON.parse(localStorage.getItem(LSK_OBJS)||"[]"); return Array.isArray(v)?v:[]; }catch{ return []; } }
+function saveObjs(a){ localStorage.setItem(LSK_OBJS, JSON.stringify(Array.isArray(a)?a:[])); }
 
 /* ==================== INSERCIÓN EN CURSOR ==================== */
 function insertAtCursor(el, text){
@@ -150,64 +171,45 @@ function insertAtCursor(el, text){
 function insertHtmlAtCursorInContentEditable(container, html) {
   container.focus();
   const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) {
-    container.insertAdjacentHTML('beforeend', html);
-    return;
-  }
+  if (!sel || sel.rangeCount === 0) { container.insertAdjacentHTML('beforeend', html); return; }
   const range = sel.getRangeAt(0);
-  const temp = document.createElement('div');
-  temp.innerHTML = html;
-  const frag = document.createDocumentFragment();
-  let node;
+  const temp = document.createElement('div'); temp.innerHTML = html;
+  const frag = document.createDocumentFragment(); let node;
   while ((node = temp.firstChild)) frag.appendChild(node);
-  range.deleteContents();
-  range.insertNode(frag);
-  // mover cursor al final
-  sel.removeAllRanges();
-  const r = document.createRange();
-  r.selectNodeContents(container);
-  r.collapse(false);
-  sel.addRange(r);
+  range.deleteContents(); range.insertNode(frag);
+  sel.removeAllRanges(); const r = document.createRange(); r.selectNodeContents(container); r.collapse(false); sel.addRange(r);
 }
 
-/* ==================== FORMATO DE FICHA (usa tus campos) ==================== */
+/* ==================== FORMATO DE FICHA ==================== */
 function formatFichaFull(x){
   const nom=(x.nombre||"").trim(), ape=(x.apellidos||"").trim();
   if(!nom && !ape) return "";
   const segs=[];
   segs.push([nom.toUpperCase(), ape.toUpperCase()].filter(Boolean).join(" ").trim());
 
-  // Documento: Tipo + Nº o "indocumentado/a"
   const tipo=(x.tipo_doc||"").trim(), num=(x.num_doc||"").trim();
   if (tipo && num) segs.push(`${tipo} ${num}`);
   else if (tipo && !num) segs.push(tipo);
   else if (!tipo && num) segs.push(num);
   else segs.push("indocumentado/a");
 
-  // nacido/a …
   const sx=(x.sexo||"").toLowerCase();
   const nac = sx.startsWith("f") ? "nacida" : sx.startsWith("m") ? "nacido" : "nacido/a";
   const lugar=(x.lugar_nacimiento||"").trim();
-  const f=(x.fecha_nacimiento||"").trim(); // libre, no formateamos
+  const f=(x.fecha_nacimiento||"").trim();
   const segNac=[]; if(lugar) segNac.push(`en ${lugar}`); if(f) segNac.push(`el ${f}`);
   if (segNac.length) segs.push(`${nac} ${segNac.join(" ")}`);
 
-  // hijo/a de …
   if (x.padres && x.padres.trim()){
     const hijo = sx.startsWith("f") ? "hija" : sx.startsWith("m") ? "hijo" : "hijo/a";
     segs.push(`${hijo} de ${x.padres.trim()}`);
   }
-
-  // domicilio …
   if (x.domicilio && x.domicilio.trim()) segs.push(`domicilio en ${x.domicilio.trim()}`);
-
-  // teléfono …
   if (x.telefono && x.telefono.trim()) segs.push(`teléfono ${x.telefono.trim()}`);
-
   return segs.join(", ")+".";
 }
 
-/* ==================== UI: CHIPS & LISTA ==================== */
+/* ==================== UI: CHIPS / LISTAS ==================== */
 const chips = $('#filiChips');
 const list  = $('#filiList');
 const accBody = $('#accBody');
@@ -217,12 +219,12 @@ function chipLabel(v){
   return n ? (n.length>14 ? n.slice(0,14)+"…" : n) : "sin nombre";
 }
 
-function rebuildUI(){
+function rebuildChips(){
   const m = loadMap();
-
-  // Chips con ➕T / ➕R / ✖️
+  const shortcuts = loadShort().filter(id => m[id]); // solo los que existan
   chips.innerHTML = "";
-  for (const [id,v] of Object.entries(m)){
+  for (const id of shortcuts){
+    const v = m[id];
     const d=document.createElement('div'); d.className='chip';
     const s=document.createElement('span'); s.textContent=chipLabel(v);
 
@@ -232,14 +234,17 @@ function rebuildUI(){
     const bR=document.createElement('button'); bR.className='mini'; bR.textContent='➕R'; bR.title='Insertar en REDACCIÓN';
     bR.onclick=()=>{ const t=formatFichaFull(v); if(t) insertHtmlAtCursorInContentEditable(out, `<p>— Que ${t}</p>`); };
 
-    const bDel=document.createElement('button'); bDel.className='mini'; bDel.textContent='✖️'; bDel.title='Eliminar';
-    bDel.onclick=()=>{ const mm = loadMap(); delete mm[id]; saveMap(mm); rebuildUI(); setStatus('🗑️ Ficha eliminada.'); };
+    const bHide=document.createElement('button'); bHide.className='mini'; bHide.textContent='✖️'; bHide.title='Quitar acceso directo';
+    bHide.onclick=()=>{ const cur = loadShort().filter(x=>x!==id); saveShort(cur); rebuildChips(); setStatus('✖️ Acceso directo eliminado (la ficha sigue en el panel).'); };
 
-    d.appendChild(s); d.appendChild(bT); d.appendChild(bR); d.appendChild(bDel);
+    d.appendChild(s); d.appendChild(bT); d.appendChild(bR); d.appendChild(bHide);
     chips.appendChild(d);
   }
+}
 
-  // Lista del panel (➕T y ➕R, y 🗑️)
+function rebuildFiliList(){
+  const m = loadMap();
+  const shortcuts = new Set(loadShort());
   list.innerHTML = "";
   for (const [id,v] of Object.entries(m)){
     const row=document.createElement('div'); row.className='rowItem';
@@ -254,20 +259,59 @@ function rebuildUI(){
     const b2=document.createElement('button'); b2.className='btn w'; b2.textContent='➕R';
     b2.onclick=()=>{ const t=formatFichaFull(v); if(t) insertHtmlAtCursorInContentEditable(out, `<p>— Que ${t}</p>`); };
 
-    const b3=document.createElement('button'); b3.className='btn w'; b3.textContent='🗑️';
-    b3.onclick=()=>{ const mm = loadMap(); delete mm[id]; saveMap(mm); rebuildUI(); setStatus('🗑️ Ficha eliminada.'); };
+    const b3=document.createElement('button'); b3.className='btn w'; b3.textContent= shortcuts.has(id) ? 'Ocultar chip' : 'Crear chip';
+    b3.onclick=()=>{
+      let cur = loadShort();
+      if (shortcuts.has(id)) { cur = cur.filter(x=>x!==id); }
+      else { cur.push(id); }
+      saveShort(cur); rebuildChips(); rebuildFiliList();
+    };
 
-    r.appendChild(b1); r.appendChild(b2); r.appendChild(b3);
+    const bDel=document.createElement('button'); bDel.className='btn w'; bDel.textContent='🗑️';
+    bDel.onclick=()=>{ const mm = loadMap(); delete mm[id]; saveMap(mm); let sc=loadShort().filter(x=>x!==id); saveShort(sc); rebuildChips(); rebuildFiliList(); setStatus('🗑️ Ficha eliminada.'); };
+
+    r.appendChild(b1); r.appendChild(b2); r.appendChild(b3); r.appendChild(bDel);
     row.appendChild(l); row.appendChild(r);
     list.appendChild(row);
   }
 }
-rebuildUI();
 
-// Plegar/Desplegar panel
-document.querySelector('.acc-h').addEventListener('click', (e)=>{
-  if (e.target.id==='btnAddFili' || e.target.htmlFor==='fileFili') return;
-  accBody.classList.toggle('show');
+function rebuildUI(){ rebuildChips(); rebuildFiliList(); }
+
+/* ==================== OBJETOS ==================== */
+const accObj = $('#accObj'), accObjBody = $('#accObjBody'), objList = $('#objList'), objTxt = $('#objTxt');
+
+function rebuildObjs(){
+  const arr = loadObjs();
+  objList.innerHTML = "";
+  arr.forEach((it, idx)=>{
+    const row=document.createElement('div'); row.className='rowItem';
+    const left=document.createElement('div'); left.textContent = it;
+    const right=document.createElement('div');
+    const del=document.createElement('button'); del.className='btn w'; del.textContent='🗑️';
+    del.onclick=()=>{ const a=loadObjs(); a.splice(idx,1); saveObjs(a); rebuildObjs(); setStatus('🗑️ Objeto eliminado.'); };
+    right.appendChild(del);
+    row.appendChild(left); row.appendChild(right);
+    objList.appendChild(row);
+  });
+}
+rebuildObjs();
+
+$('#btnObj').addEventListener('click', ()=>{ accObjBody.classList.toggle('show'); });
+$('#btnObjAdd').addEventListener('click', ()=>{
+  const t=(objTxt.value||"").trim(); if(!t) return;
+  const a=loadObjs(); a.push(t); saveObjs(a); objTxt.value=""; rebuildObjs(); setStatus('✅ Objeto añadido.');
+});
+
+/* ==================== PLEGABLES ==================== */
+document.querySelectorAll('.acc-h').forEach(h=>{
+  h.addEventListener('click', (e)=>{
+    const wrap = h.parentElement;
+    const body = wrap.querySelector('.acc-c');
+    // evita plegar si se ha pulsado un control de cabecera
+    if (e.target.id==='btnObjAdd' || e.target.id==='objTxt' || e.target.id==='btnAddFili' || e.target.htmlFor==='fileFili') return;
+    body.classList.toggle('show');
+  });
 });
 
 /* ==================== FORM / IMPORT ==================== */
@@ -277,20 +321,36 @@ const fiCondicion=$('#fiCondicion'), fiSexo=$('#fiSexo'), fiNombre=$('#fiNombre'
       fiDom=$('#fiDom'), fiTel=$('#fiTel');
 
 function toInternalFromSpanish(obj){
-  // Mapea las claves del JSON { } con tus etiquetas a nuestro formato interno
   return {
-    condicion: obj["Condición"] || obj["condicion"] || "",
-    sexo: obj["Sexo"] || obj["sexo"] || "",
-    nombre: obj["Nombre"] || obj["nombre"] || "",
-    apellidos: obj["Apellidos"] || obj["apellidos"] || "",
-    nacionalidad: obj["Nacionalidad"] || obj["nacionalidad"] || "",
-    tipo_doc: obj["Tipo de documento"] || obj["tipo_doc"] || obj["tipoDocumento"] || "",
-    num_doc: obj["Nº Documento"] || obj["numeroDocumento"] || obj["num_doc"] || obj["Nº documento"] || obj["Nº"] || "",
-    fecha_nacimiento: obj["Fecha de nacimiento"] || obj["fecha_nacimiento"] || "",
-    lugar_nacimiento: obj["Lugar de nacimiento"] || obj["lugar_nacimiento"] || "",
-    padres: obj["Nombre de los Padres"] || obj["padres"] || "",
-    domicilio: obj["Domicilio"] || obj["domicilio"] || "",
-    telefono: obj["Teléfono"] || obj["telefono"] || ""
+    condicion: obj["Condición"] ?? obj["condicion"] ?? "",
+    sexo: obj["Sexo"] ?? obj["sexo"] ?? "",
+    nombre: obj["Nombre"] ?? obj["nombre"] ?? "",
+    apellidos: obj["Apellidos"] ?? obj["apellidos"] ?? "",
+    nacionalidad: obj["Nacionalidad"] ?? obj["nacionalidad"] ?? "",
+    tipo_doc: obj["Tipo de documento"] ?? obj["tipo_doc"] ?? obj["tipoDocumento"] ?? "",
+    num_doc: obj["Nº Documento"] ?? obj["numeroDocumento"] ?? obj["num_doc"] ?? obj["Nº documento"] ?? obj["Nº"] ?? "",
+    fecha_nacimiento: obj["Fecha de nacimiento"] ?? obj["fecha_nacimiento"] ?? "",
+    lugar_nacimiento: obj["Lugar de nacimiento"] ?? obj["lugar_nacimiento"] ?? "",
+    padres: obj["Nombre de los Padres"] ?? obj["padres"] ?? "",
+    domicilio: obj["Domicilio"] ?? obj["domicilio"] ?? "",
+    telefono: obj["Teléfono"] ?? obj["telefono"] ?? ""
+  };
+}
+
+function toSpanishFromInternal(v){
+  return {
+    "Condición": v.condicion || "",
+    "Sexo": v.sexo || "",
+    "Nombre": v.nombre || "",
+    "Apellidos": v.apellidos || "",
+    "Nacionalidad": v.nacionalidad || "",
+    "Tipo de documento": v.tipo_doc || "",
+    "Nº Documento": v.num_doc || "",
+    "Fecha de nacimiento": v.fecha_nacimiento || "",
+    "Lugar de nacimiento": v.lugar_nacimiento || "",
+    "Nombre de los Padres": v.padres || "",
+    "Domicilio": v.domicilio || "",
+    "Teléfono": v.telefono || ""
   };
 }
 
@@ -311,49 +371,49 @@ $('#btnAddFili').addEventListener('click', ()=>{
     telefono: fiTel.value||""
   };
   const m = loadMap(); m[id]=v; saveMap(m);
+  // Añade atajo por defecto
+  const sc = loadShort(); sc.push(id); saveShort(sc);
   fiCondicion.value=fiSexo.value=fiNombre.value=fiApellidos.value=fiNacionalidad.value=fiTipoDoc.value=fiNumDoc.value=fiFechaNac.value=fiLugarNac.value=fiPadres.value=fiDom.value=fiTel.value="";
   rebuildUI();
-  setStatus("✅ Ficha guardada.");
+  setStatus("✅ Ficha guardada (y acceso directo creado).");
 });
 
-// Importar JSON — ACEPTA 4 FORMAS:
-// 1) { doc, filiaciones:{ id:{...}, ... } }
-// 2) { id:{...}, id2:{...} }  (objeto plano)
+// Importar JSON — ACEPTA:
+// 1) { doc, filiaciones:[ {...}, {...} ], objects:[...] }
+// 2) { id:{...}, id2:{...} }  (objeto plano de varias fichas)
 // 3) [ {...}, {...} ]         (array de fichas)
-// 4) { "Condición": "...", "Sexo": "...", ... }  (una sola ficha con tus claves)
+// 4) { "Condición": "...", ... } (una sola ficha)
 $('#fileFili').addEventListener('change', async (ev)=>{
   const f = ev.target.files?.[0]; if(!f) return;
   try{
     const txtJ = await f.text();
     const obj = JSON.parse(txtJ);
-    const m = loadMap();
+    const m = loadMap(); let sc = loadShort();
 
     const addOne = (raw) => {
-      // Acepta tanto formato interno como el de etiquetas españolas
       const v = toInternalFromSpanish(raw);
-      // Si todo viene vacío, no añadimos
       const hasSome = Object.values(v).some(x => (x||"").toString().trim().length);
       if (!hasSome) return;
       const id = "P"+Date.now()+Math.floor(Math.random()*1000);
       m[id] = v;
+      if (!sc.includes(id)) sc.push(id); // crea acceso directo por defecto
     };
 
     if (Array.isArray(obj)) {
       for (const it of obj) if (it && typeof it==="object") addOne(it);
     } else if (obj && typeof obj==="object") {
-      if (typeof obj.doc === "string") out.innerHTML = obj.doc; // carga redacción si viene
+      if (typeof obj.doc === "string") out.innerHTML = obj.doc;
+      if (Array.isArray(obj.objects)) { saveObjs(obj.objects.slice()); rebuildObjs(); }
 
-      if (obj.filiaciones && typeof obj.filiaciones==="object") {
-        for (const val of Object.values(obj.filiaciones)) if (val && typeof val==="object") addOne(val);
+      if (Array.isArray(obj.filiaciones)) {
+        for (const val of obj.filiaciones) if (val && typeof val==="object") addOne(val);
       } else {
-        // ¿Es un objeto plano de múltiples ids o una sola ficha con etiquetas españolas?
         const keys = Object.keys(obj);
-        const mayBeSingle = ["Condición","Sexo","Nombre","Apellidos","Nacionalidad","Tipo de documento","Nº Documento","Fecha de nacimiento","Lugar de nacimiento","Nombre de los Padres","Domicilio","Teléfono"];
-        const isSingle = mayBeSingle.some(k => k in obj) || mayBeSingle.some(k => k.toLowerCase() in Object.fromEntries(keys.map(k=>[k.toLowerCase(),true])));
+        const labelKeys = ["Condición","Sexo","Nombre","Apellidos","Nacionalidad","Tipo de documento","Nº Documento","Fecha de nacimiento","Lugar de nacimiento","Nombre de los Padres","Domicilio","Teléfono"];
+        const isSingle = labelKeys.some(k => k in obj) || labelKeys.some(k => k.toLowerCase() in Object.fromEntries(keys.map(k=>[k.toLowerCase(),true])));
         if (isSingle) {
-          addOne(obj); // una sola ficha { ... }
+          addOne(obj);
         } else {
-          // objeto plano con varias fichas por id
           for (const val of Object.values(obj)) if (val && typeof val==="object") addOne(val);
         }
       }
@@ -361,9 +421,9 @@ $('#fileFili').addEventListener('change', async (ev)=>{
       throw new Error("Formato JSON no válido");
     }
 
-    saveMap(m);
+    saveMap(m); saveShort(sc);
     rebuildUI();
-    setStatus("✅ Filiaciones importadas.");
+    setStatus("✅ Datos importados.");
   }catch(e){
     setStatus("❌ Error al importar: "+(e.message||e));
   }finally{
@@ -426,7 +486,7 @@ fileAudio.addEventListener('change', async ()=>{
 
 /* ==================== REDACTAR / LIMPIAR / COPIAR / DESCARGAR ==================== */
 $('#btnDraft').addEventListener('click', async ()=>{
-  const body = JSON.stringify({ texto: txt.value||"", filiaciones:[], objetos:[], fichas_resueltas:[] });
+  const body = JSON.stringify({ texto: txt.value||"", filiaciones:[], objetos:loadObjs(), fichas_resueltas:[] });
   try{
     setStatus('⏳ Redactando comparecencia…');
     const r = await fetch(`${API_BASE}/api/police-draft`, { method:'POST', headers:{'Content-Type':'application/json'}, body });
@@ -447,22 +507,34 @@ $('#btnCopy').addEventListener('click', async ()=>{
   }catch{ setStatus('⚠️ No se pudo copiar.'); }
 });
 
-// Descargar JSON principal: { doc: (HTML salida), filiaciones:{...} }
+// Descargar JSON principal: { doc, filiaciones:[...], objects:[...] }
 $('#btnDownload').addEventListener('click', ()=>{
+  const m = loadMap();
+  const arr = Object.values(m).map(toSpanishFromInternal); // array con etiquetas en español
   const payload = {
     doc: out.innerHTML || "",
-    filiaciones: loadMap()
+    filiaciones: arr,
+    objects: loadObjs()
   };
+  // nombre compa_HHMM.json
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  const fname = `compa_${hh}${mm}.json`;
+
   const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = "compapol.json";
+  a.download = fname;
   a.click();
-  setStatus("💾 JSON descargado (doc + filiaciones).");
+  setStatus(`💾 JSON descargado (${fname}).`);
 });
 
 /* ==================== PING ==================== */
 (async()=>{ try{ const r=await fetch(`${API_BASE}/healthz`); setLive(r.ok?'🟢':'🟠'); }catch{ setLive('🟠'); }})();
+
+/* ==================== INIT ==================== */
+rebuildUI();
 </script>
 </body>
 </html>
