@@ -1,232 +1,535 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DILIPOL · Inicio</title>
-  <link rel="stylesheet" href="css/styles.css" />
-
- <style>
-  /* Oculta la navegación superior SOLO en index */
-  .top-nav { display: none !important; }
-
-  /* Barra de acciones bajo “DILIPOL” */
-  .expediente-bar { margin-top: 10px; }
-  .expediente-row {
-    display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding-left: 50px;
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>🛡️ Compapol • Away</title>
+<style>
+  :root{
+    --bg:#000;                 /* fondo general negro */
+    --panel:#1f1f1f;           /* paneles gris oscuro */
+    --field:#222;              /* campos */
+    --line:#2b5fff;            /* azul primario para bordes */
+    --txt:#fff;                /* texto principal */
+    --muted:#b5b5b5;           /* texto suave */
+    --ok:#22c55e; --warn:#f59e0b; --danger:#ef4444;
+    --glow-blue: 0 0 6px rgba(43,95,255,.7), 0 0 14px rgba(43,95,255,.5);
+    --glow-green: 0 0 6px rgba(16,185,129,.7), 0 0 14px rgba(16,185,129,.5);
+    --glow-red: 0 0 6px rgba(239,68,68,.8), 0 0 14px rgba(239,68,68,.6);
   }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{ margin:0; color:var(--txt); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); }
 
-  /* Botones superiores (Iniciar/Abrir, Guardar, Salir) */
-  .exp-btn {
-    display: inline-block; min-width: 220px; text-align: center;
-    padding: 12px 16px; border-radius: 12px;
-    border: 1px solid rgba(15,23,42,.15);
-    cursor: pointer; font-weight: 700; letter-spacing: .2px;
-    background: #1f2937; color:#fff;
-    transition: transform .06s ease, background .15s ease, box-shadow .15s ease, border-color .15s ease;
-    box-shadow: none;
+  /* Encabezado con neón azul */
+  header{
+    position:sticky; top:0; z-index:10; padding:14px 12px;
+    background:linear-gradient(90deg,#0b0f2e 0%, #0a0e29 40%, #0b0f2e 100%);
+    border-bottom:1px solid var(--line);
+    box-shadow: var(--glow-blue);
   }
-  .exp-btn:active { transform: scale(.985); }
-  .exp-btn[disabled] { opacity:.55; cursor:not-allowed; }
-
-  /* === PATRÓN UNIFICADO: BASE OSCURA / HOVER CLARA === */
-
-  /* Iniciar/Abrir (verde turquesa profesional) */
-  #btnIniciarAbrir{
-    background: linear-gradient(135deg, #0a4d48, #0b5f5a); /* BASE más oscura */
-    box-shadow: 0 10px 22px rgba(10,77,72,.35), 0 2px 6px rgba(0,0,0,.28);
-    border: 1px solid rgba(9, 83, 77, .65);
-  }
-  #btnIniciarAbrir:hover{
-    background: linear-gradient(135deg, #10a89b, #0f8279); /* HOVER más clara */
-    box-shadow: 0 12px 28px rgba(16,168,155,.38), 0 3px 10px rgba(0,0,0,.32);
-    border-color: rgba(14,116,144,.6);
+  h1{
+    margin:0; text-align:center; font-weight:800; letter-spacing:.3px; font-size:17px;
+    color:#dfe8ff;
+    text-shadow:0 0 6px rgba(120,160,255,.8),0 0 14px rgba(70,120,255,.6);
   }
 
-  /* Guardar (azul serio) */
-  #btnGuardar{
-    background: linear-gradient(135deg, #1e3a8a, #1d4ed8); /* BASE más oscura */
-    box-shadow: 0 10px 22px rgba(30,64,175,.45), 0 2px 6px rgba(0,0,0,.30);
-    border:1px solid rgba(29,78,216,.6);
+  .wrap{ padding:12px; max-width:820px; margin:0 auto; width:100%; }
+
+  /* Botonera: 5 botones repartiéndose el 100% del ancho */
+  .bar{
+    display:grid;
+    grid-template-columns:repeat(5, minmax(0,1fr)); /* 🎤 ⏸️ 🏛️ 🧹 💾 */
+    gap:8px; width:100%; margin-bottom:10px;
   }
-  #btnGuardar:hover{
-    background: linear-gradient(135deg, #2563eb, #3b82f6); /* HOVER más clara */
-    box-shadow: 0 12px 28px rgba(37,99,235,.35), 0 3px 10px rgba(0,0,0,.32);
-    border-color: rgba(30,58,138,.55);
+  @media (max-width:420px){ .bar{ gap:6px; } }
+
+  .btn{
+    height:42px; border:1px solid var(--line);
+    background:linear-gradient(180deg,#0b0f2e,#0a0e29);
+    color:var(--txt); border-radius:12px; font-size:16px;
+    display:inline-flex; align-items:center; justify-content:center;
+    box-shadow: var(--glow-blue);
+    -webkit-appearance:none;
+    transition: box-shadow .12s ease, border-color .12s ease;
+  }
+  .btn:active{ transform:translateY(1px); }
+
+  /* Estado visual al pulsar: borde/sombra roja durante ~1s */
+  .btn.flash-red{ border-color: var(--danger) !important; box-shadow: var(--glow-red) !important; }
+
+  textarea{
+    width:100%; min-height:200px; background:var(--panel); color:var(--txt);
+    border:1px solid var(--line); border-radius:12px; padding:10px; font-size:15px;
+    box-shadow: var(--glow-blue);
+  }
+  textarea::placeholder{ color:var(--muted); opacity:.35; }
+
+  .status{ font-size:12px; color:var(--muted); min-height:18px; margin:6px 2px 10px; }
+
+  .out{
+    min-height:180px; background:var(--panel); border:1px solid var(--line);
+    border-radius:12px; padding:10px; box-shadow: var(--glow-blue);
   }
 
-  /* === Botón flotante “Modificar datos raíz” === */
-  #btnEditarRaiz{
-    position: fixed; right: 22px; bottom: 22px;
-    display: none; /* lo controla el script según si hay expediente */
-    padding: 14px 18px;
-    border-radius: 12px;
-    font-weight: 800;
-    letter-spacing: .3px;
-    text-decoration: none;
-    color: #fff;
-    background: linear-gradient(135deg,#1f2937,#334155);
-    border: 1px solid rgba(148,163,184,.25);
-    box-shadow: 0 10px 24px rgba(2,6,23,.45);
-    transition: transform .06s ease, background .15s ease, box-shadow .15s ease;
-    z-index: 1000;
+  .accordion{ border:1px solid var(--line); border-radius:12px; overflow:hidden; margin:10px 0; box-shadow: var(--glow-blue); }
+  .acc-h{
+    background:linear-gradient(180deg,#0b0f2e,#0a0e29);
+    padding:10px; display:flex; align-items:center; justify-content:space-between; font-size:14px;
   }
-  #btnEditarRaiz:hover{
-    background: linear-gradient(135deg,#334155,#475569);
-    box-shadow: 0 14px 32px rgba(2,6,23,.55);
+  .acc-c{ background:#0b0b0b; padding:10px; display:none; }
+  .acc-c.show{ display:block; }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; }
+  input[type="text"], select{
+    width:100%; height:38px; border-radius:10px; border:1px solid var(--line);
+    background:var(--field); color:var(--txt); padding:0 10px; font-size:14px;
+    box-shadow: inset 0 0 0 1px rgba(43,95,255,.08);
   }
-  #btnEditarRaiz:active{ transform: scale(.985); }
+  input::placeholder{ color:var(--muted); opacity:.35; }
+  select{ color:var(--txt); }
+
+  .list{ margin-top:8px; display:grid; gap:6px; width:100%; }
+  .rowItem{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:6px 8px; background:#141414; border:1px solid var(--line); border-radius:10px; font-size:13px;
+  }
+
+  /* Botones verdes (Añadir/Importar) con brillo propio */
+  .btn-green{
+    border-color:#10b981; box-shadow: var(--glow-green);
+    background:linear-gradient(180deg,#0e2a25,#0b201b);
+    font-size:14px; height:34px; padding:0 10px; border-radius:10px;
+  }
 </style>
-
 </head>
 <body>
-  <header class="site-header">
-    <div class="brand">
-      <div class="logo"></div>
-      <h1>DILIPOL</h1>
+<header><h1>🛡️ Compapol • Away</h1></header>
 
-      <div class="expediente-bar">
-        <div class="expediente-row">
-          <button id="btnIniciarAbrir" class="exp-btn primary">Iniciar/Abrir Expediente</button>
-          <button id="btnGuardar" class="exp-btn save" style="display:none;">Guardar</button>
-          <button id="btnSalir" class="exp-btn warn" style="display:none;">Salir</button>
-        </div>
-        <input type="file" id="fileExpediente" accept=".json" hidden>
-      </div>
-    </div>
-
-    <!-- En otras páginas, esta nav sí se muestra -->
-    <nav class="top-nav" aria-label="Navegación principal">
-      <a href="index.html">Inicio</a>
-      <a href="comparecencia.html">COMPARECENCIA</a>
-      <a href="diligencias.html">DILIGENCIAS</a>
-      <a href="documentos.html">DOCUMENTOS</a>
-    </nav>
-  </header>
-
-  <main class="container">
-    <section class="card hero">
-      <div id="homeActions" class="actions">
-        <!-- NUEVO: clases por botón para estilos diferenciados -->
-        <a class="btn btn--comparecencia" href="comparecencia.html">COMPARECENCIA</a>
-        <a class="btn btn--diligencias"   href="diligencias.html">DILIGENCIAS</a>
-        <a class="btn btn--documentos"    href="documentos.html">DOCUMENTOS</a>
-      </div>
-    </section>
-  </main>
-
-  <!-- Botón flotante (solo visible con expediente cargado) -->
-  <a id="btnEditarRaiz" href="raiz.html" title="Editar campos raíz del expediente">Modificar datos raíz</a>
-
-  <!-- primero cargamos el módulo de guardado-->
-  <script src="fs-save.js"></script>
-
-  <script type="module" src="js/router.js"></script>
-
-  <!-- Panel lateral -->
-  <div id="panelFiliaciones">
-    <!-- Puedes usar estos títulos con las clases de concepto si te encaja en tu UI -->
-    <!-- <div class="dili-title">DILIGENCIAS</div> -->
-    <!-- <div class="section-title section-title--filiaciones">FILIACIONES</div> -->
-    <!-- <div class="section-title section-title--objetos">OBJETOS</div> -->
-    <div id="listaFiliaciones"></div>
+<div class="wrap">
+  <!-- Botonera (solo iconos) -->
+  <div class="bar" id="topBar">
+    <button id="btnRec" class="btn" title="Grabar" aria-label="Grabar">🎤</button>
+    <button id="btnRecStop" class="btn" title="Parar" aria-label="Parar">⏸️</button>
+    <button id="btnDraft" class="btn" title="Redacción policial" aria-label="Redacción policial">🏛️</button>
+    <button id="btnClear" class="btn" title="Limpiar" aria-label="Limpiar">🧹</button>
+    <button id="btnDownload" class="btn" title="Guardar JSON" aria-label="Guardar JSON">💾</button>
   </div>
 
-  <script src="js/filiaciones_loader.js"></script>
+  <!-- Filiaciones -->
+  <div class="accordion" id="accFili">
+    <div class="acc-h">
+      <span>Filiaciones ▾</span>
+      <!-- Importar solo aparece al abrir (lo colocamos dentro del cuerpo) -->
+    </div>
+    <div class="acc-c" id="accBody">
+      <div class="grid2">
+        <select id="fiCondicion" title="Condición">
+          <option value="">(Condición)</option>
+          <option>denunciado</option>
+          <option>investigado</option>
+          <option>perjudicado</option>
+          <option>requirente</option>
+          <option>testigo</option>
+        </select>
+        <select id="fiSexo" title="Sexo">
+          <option value="">(Sexo)</option>
+          <option>Masculino</option>
+          <option>Femenino</option>
+        </select>
 
-  <!-- ===== Confirmación de salida (ajustada) ===== -->
-  <script>
-    (function(){
-      const $ = s => document.querySelector(s);
-      const btnSalir   = $('#btnSalir');
-      const btnGuardar = $('#btnGuardar');
-      const btnAbrir   = $('#btnIniciarAbrir');
+        <input id="fiNombre" type="text" placeholder="Nombre">
+        <input id="fiApellidos" type="text" placeholder="Apellidos (MAYÚSC.)">
 
-      function cerrarSesionExpedienteUI(){
-        btnGuardar.style.display = 'none';
-        btnSalir.style.display   = 'none';
-        btnAbrir.style.display   = '';
+        <input id="fiNacionalidad" type="text" placeholder="Nacionalidad">
+        <input id="fiTipoDoc" type="text" placeholder="Tipo documento">
+
+        <input id="fiNumDoc" type="text" placeholder="Nº Documento">
+        <input id="fiFechaNac" type="text" placeholder="Fecha Nacimiento">
+
+        <input id="fiLugarNac" type="text" placeholder="Lugar de nacimiento">
+        <input id="fiPadres" type="text" placeholder="Nombre de los Padres">
+
+        <input id="fiDom" type="text" placeholder="Domicilio">
+        <input id="fiTel" type="text" placeholder="Teléfono">
+      </div>
+
+      <!-- Botón Añadir debajo de los campos -->
+      <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <button id="btnAddFili" class="btn btn-green" title="Guardar ficha">➕ Añadir</button>
+
+        <!-- Importar visible aquí dentro (solo al abrir) -->
+        <label class="btn btn-green" for="fileFili" title="Importar JSON">📥 Importar</label>
+        <input id="fileFili" type="file" accept="application/json" style="display:none">
+      </div>
+
+      <div class="list" id="filiList"></div>
+    </div>
+  </div>
+
+  <!-- Texto dictado (sin placeholder) -->
+  <textarea id="txt"></textarea>
+  <div id="status" class="status"></div>
+
+  <h3 style="margin:10px 0 6px;">Versión policial</h3>
+  <div id="out" class="out" contenteditable="true"></div>
+</div>
+
+<script>
+/* ==================== CONFIG ==================== */
+const API_BASE = "https://compa-movil-backend.onrender.com";
+
+/* ==================== UTIL / ESTADO ==================== */
+const $ = s => document.querySelector(s);
+const statusEl = $('#status'), txt = $('#txt'), out = $('#out');
+function setStatus(s){ statusEl.textContent = s; }
+function flashRed(el){ el.classList.add('flash-red'); setTimeout(()=>el.classList.remove('flash-red'), 1000); }
+
+/* ==================== STORAGE ==================== */
+const LSK_MAP   = "compapol.fili.map";
+const LSK_EXTRAS= "compapol.extras";
+
+function loadMap(){ try{ const v=JSON.parse(localStorage.getItem(LSK_MAP)||"{}"); return v&&typeof v==="object"?v:{}; }catch{ return {}; } }
+function saveMap(m){ localStorage.setItem(LSK_MAP, JSON.stringify(m||{})); }
+function loadExtras(){ try{ const v=JSON.parse(localStorage.getItem(LSK_EXTRAS)||"{}"); return v&&typeof v==="object"?v:{}; }catch{ return {}; } }
+function saveExtras(e){ localStorage.setItem(LSK_EXTRAS, JSON.stringify(e||{})); }
+
+/* ==================== CAPITALIZACIÓN ==================== */
+/* Apellidos SIEMPRE MAYÚSCULAS. El resto Title Case con excepciones. */
+const STOPWORDS = new Set(["de","del","la","las","los","y","o","u","al","el","en","da","do","das","dos"]);
+function titleCaseSmart(str){
+  if(!str) return "";
+  return str.trim().split(/\s+/).map((w,i)=>{
+    const low = w.toLowerCase();
+    if(i>0 && STOPWORDS.has(low)) return low;
+    return low.charAt(0).toUpperCase() + low.slice(1);
+  }).join(" ");
+}
+function normalizeFicha(v){
+  const out = {...v};
+  out.nombre = titleCaseSmart(out.nombre||"");
+  out.nacionalidad = titleCaseSmart(out.nacionalidad||"");
+  out.lugar_nacimiento = titleCaseSmart(out.lugar_nacimiento||"");
+  out.padres = titleCaseSmart(out.padres||"");
+  out.domicilio = titleCaseSmart(out.domicilio||"");
+  // Apellidos SIEMPRE en mayúsculas:
+  out.apellidos = (out.apellidos||"").toUpperCase();
+  return out;
+}
+
+/* ==================== INSERCIÓN ==================== */
+function insertAtCursor(el, text){
+  const start = el.selectionStart ?? el.value.length;
+  const end = el.selectionEnd ?? el.value.length;
+  const before = el.value.slice(0,start);
+  const after  = el.value.slice(end);
+  el.value = before + text + after;
+  const pos = start + text.length;
+  el.selectionStart = el.selectionEnd = pos;
+  el.focus();
+}
+function insertHtmlAtCursorInContentEditable(container, html) {
+  container.focus();
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) { container.insertAdjacentHTML('beforeend', html); return; }
+  const range = sel.getRangeAt(0);
+  const temp = document.createElement('div'); temp.innerHTML = html;
+  const frag = document.createDocumentFragment(); let node;
+  while ((node = temp.firstChild)) frag.appendChild(node);
+  range.deleteContents(); range.insertNode(frag);
+  sel.removeAllRanges(); const r = document.createRange(); r.selectNodeContents(container); r.collapse(false); sel.addRange(r);
+}
+
+/* ==================== FECHAS ==================== */
+function toDDMMYYYY(s){
+  if (!s) return "";
+  const t = s.trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(t)) return t;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)){ const [Y,M,D]=t.split("-"); return `${D}/${M}/${Y}`; }
+  return t;
+}
+
+/* ==================== FORMATO DE FICHA ==================== */
+function formatFichaFull(x){
+  const nom=(x.nombre||"").trim(), ape=(x.apellidos||"").trim();
+  if(!nom && !ape) return "";
+  const segs=[];
+  segs.push([nom, ape].filter(Boolean).join(" ").trim());
+
+  const tipo=(x.tipo_doc||"").trim(), num=(x.num_doc||"").trim();
+  if (tipo && num) segs.push(`${tipo} ${num}`);
+  else if (tipo && !num) segs.push(tipo);
+  else if (!tipo && num) segs.push(num);
+  else segs.push("indocumentado/a");
+
+  const sx=(x.sexo||"").toLowerCase();
+  const nac = sx.startsWith("f") ? "nacida" : sx.startsWith("m") ? "nacido" : "nacido/a";
+  const lugar=(x.lugar_nacimiento||"").trim();
+  const f=toDDMMYYYY(x.fecha_nacimiento||"");
+  const segNac=[]; if(lugar) segNac.push(`en ${lugar}`); if(f) segNac.push(`el ${f}`);
+  if (segNac.length) segs.push(`${nac} ${segNac.join(" ")}`);
+
+  if (x.padres && x.padres.trim()){
+    const hijo = sx.startsWith("f") ? "hija" : sx.startsWith("m") ? "hijo" : "hijo/a";
+    segs.push(`${hijo} de ${x.padres.trim()}`);
+  }
+  if (x.domicilio && x.domicilio.trim()) segs.push(`domicilio en ${x.domicilio.trim()}`);
+  if (x.telefono && x.telefono.trim()) segs.push(`teléfono ${x.telefono.trim()}`);
+  return segs.join(", ")+".";
+}
+
+/* ==================== UI FILIACIONES ==================== */
+const list  = $('#filiList');
+const accBody = $('#accBody');
+
+function rowLabel(v){
+  const n = [ (v.nombre||"").trim(), (v.apellidos||"").trim() ].filter(Boolean).join(" ");
+  return n ? n.toUpperCase() : "(SIN NOMBRE)";
+}
+
+function rebuildFiliList(){
+  const m = loadMap();
+  list.innerHTML = "";
+  for (const [id,vRaw] of Object.entries(m)){
+    const v = normalizeFicha(vRaw);
+    // Persistimos normalizado por si venía sin normalizar
+    m[id] = v;
+    const row=document.createElement('div'); row.className='rowItem';
+    const l=document.createElement('div'); l.textContent = rowLabel(v);
+    const r=document.createElement('div'); r.style.display='flex'; r.style.gap='6px';
+
+    const bT=document.createElement('button'); bT.className='btn'; bT.style.height='32px'; bT.textContent='➕T';
+    bT.title='Insertar en Texto';
+    bT.onclick=(ev)=>{ flashRed(ev.currentTarget); const t=formatFichaFull(v); if(t) insertAtCursor(txt, t+" "); closeAccordion(); };
+
+    const bR=document.createElement('button'); bR.className='btn'; bR.style.height='32px'; bR.textContent='➕R';
+    bR.title='Insertar en Versión policial';
+    bR.onclick=(ev)=>{ flashRed(ev.currentTarget); const t=formatFichaFull(v); if(t) insertHtmlAtCursorInContentEditable(out, `<p>— Que ${t}</p>`); closeAccordion(); };
+
+    const bDel=document.createElement('button'); bDel.className='btn'; bDel.style.height='32px'; bDel.textContent='🗑️';
+    bDel.title='Eliminar ficha';
+    bDel.onclick=(ev)=>{ flashRed(ev.currentTarget); const mm = loadMap(); delete mm[id]; saveMap(mm); rebuildFiliList(); setStatus('🗑️ Ficha eliminada.'); };
+
+    r.appendChild(bT); r.appendChild(bR); r.appendChild(bDel);
+    row.appendChild(l); row.appendChild(r);
+    list.appendChild(row);
+  }
+  saveMap(m);
+}
+
+/* ==================== FORM / IMPORT / EXPORT ==================== */
+const fiCondicion=$('#fiCondicion'), fiSexo=$('#fiSexo'), fiNombre=$('#fiNombre'), fiApellidos=$('#fiApellidos'),
+      fiNacionalidad=$('#fiNacionalidad'), fiTipoDoc=$('#fiTipoDoc'), fiNumDoc=$('#fiNumDoc'),
+      fiFechaNac=$('#fiFechaNac'), fiLugarNac=$('#fiLugarNac'), fiPadres=$('#fiPadres'),
+      fiDom=$('#fiDom'), fiTel=$('#fiTel'), fileFili=$('#fileFili');
+
+function toInternalFromSpanish(obj){
+  const base = {
+    condicion: obj["Condición"] ?? obj["condicion"] ?? "",
+    sexo: obj["Sexo"] ?? obj["sexo"] ?? "",
+    nombre: obj["Nombre"] ?? obj["nombre"] ?? "",
+    apellidos: obj["Apellidos"] ?? obj["apellidos"] ?? "",
+    nacionalidad: obj["Nacionalidad"] ?? obj["nacionalidad"] ?? "",
+    tipo_doc: obj["Tipo de documento"] ?? obj["tipo_doc"] ?? obj["tipoDocumento"] ?? "",
+    num_doc: obj["Nº Documento"] ?? obj["numeroDocumento"] ?? obj["num_doc"] ?? obj["Nº documento"] ?? obj["Nº"] ?? "",
+    fecha_nacimiento: (obj["Fecha de nacimiento"] ?? obj["fecha_nacimiento"] ?? ""),
+    lugar_nacimiento: obj["Lugar de nacimiento"] ?? obj["lugar_nacimiento"] ?? "",
+    padres: obj["Nombre de los Padres"] ?? obj["padres"] ?? "",
+    domicilio: obj["Domicilio"] ?? obj["domicilio"] ?? "",
+    telefono: obj["Teléfono"] ?? obj["telefono"] ?? ""
+  };
+  // Normaliza fecha a dd/mm/aaaa y aplica capitalización/uppercase
+  base.fecha_nacimiento = toDDMMYYYY(base.fecha_nacimiento);
+  return normalizeFicha(base);
+}
+function toSpanishFromInternal(v){
+  return {
+    "Condición": v.condicion || "",
+    "Sexo": v.sexo || "",
+    "Nombre": v.nombre || "",
+    "Apellidos": v.apellidos || "",
+    "Nacionalidad": v.nacionalidad || "",
+    "Tipo de documento": v.tipo_doc || "",
+    "Nº Documento": v.num_doc || "",
+    "Fecha de nacimiento": v.fecha_nacimiento || "",
+    "Lugar de nacimiento": v.lugar_nacimiento || "",
+    "Nombre de los Padres": v.padres || "",
+    "Domicilio": v.domicilio || "",
+    "Teléfono": v.telefono || ""
+  };
+}
+
+function closeAccordion(){ $('#accBody').classList.remove('show'); }
+
+/* Añadir */
+$('#btnAddFili').addEventListener('click', (ev)=>{
+  flashRed(ev.currentTarget);
+  const id = "P"+Date.now();
+  const v = normalizeFicha({
+    condicion: fiCondicion.value||"",
+    sexo: fiSexo.value||"",
+    nombre: fiNombre.value||"",
+    apellidos: fiApellidos.value||"",
+    nacionalidad: fiNacionalidad.value||"",
+    tipo_doc: fiTipoDoc.value||"",
+    num_doc: fiNumDoc.value||"",
+    fecha_nacimiento: toDDMMYYYY(fiFechaNac.value||""),
+    lugar_nacimiento: fiLugarNac.value||"",
+    padres: fiPadres.value||"",
+    domicilio: fiDom.value||"",
+    telefono: fiTel.value||""
+  });
+  const m = loadMap(); m[id]=v; saveMap(m);
+  fiCondicion.value=fiSexo.value=fiNombre.value=fiApellidos.value=fiNacionalidad.value=fiTipoDoc.value=fiNumDoc.value=fiFechaNac.value=fiLugarNac.value=fiPadres.value=fiDom.value=fiTel.value="";
+  rebuildFiliList(); setStatus("✅ Ficha guardada."); closeAccordion();
+});
+
+/* Importar (solo visible al abrir porque está dentro del cuerpo) */
+fileFili.addEventListener('change', async (ev)=>{
+  const f = ev.target.files?.[0]; if(!f) return;
+  try{
+    const txt = await f.text();
+    const obj = JSON.parse(txt);
+    const m = loadMap(); let extras = loadExtras();
+
+    const addOne = (raw) => {
+      const v = toInternalFromSpanish(raw);
+      const hasSome = Object.values(v).some(x => (x||"").toString().trim().length);
+      if (!hasSome) return;
+      const id = "P"+Date.now()+Math.floor(Math.random()*1000);
+      m[id] = v;
+    };
+
+    if (Array.isArray(obj)) {
+      for (const it of obj) if (it && typeof it==="object") addOne(it);
+    } else if (obj && typeof obj==="object") {
+      // Extras top-level (det • pol)
+      const knownTop = new Set(["doc","filiaciones","objects","extras"]);
+      const extraTop = {};
+      for (const [k,v] of Object.entries(obj)){
+        if (!knownTop.has(k)) extraTop[k]=v;
       }
+      extras = { ...extras, ...extraTop };
 
-      function ejecutarGuardar(){
-        return new Promise((resolve)=>{
-          if (!btnGuardar || btnGuardar.style.display === 'none'){
-            return resolve();
-          }
-          btnGuardar.click();
-          setTimeout(resolve, 250);
-        });
+      if (typeof obj.doc === "string") out.innerHTML = obj.doc;
+
+      if (Array.isArray(obj.filiaciones)) {
+        for (const val of obj.filiaciones) if (val && typeof val==="object") addOne(val);
+      } else if (obj.filiaciones && typeof obj.filiaciones==="object") {
+        for (const val of Object.values(obj.filiaciones)) if (val && typeof val==="object") addOne(val);
+      } else {
+        const keys = Object.keys(obj);
+        const labelKeys = ["Condición","Sexo","Nombre","Apellidos","Nacionalidad","Tipo de documento","Nº Documento","Fecha de nacimiento","Lugar de nacimiento","Nombre de los Padres","Domicilio","Teléfono"];
+        const isSingle = labelKeys.some(k => k in obj) || labelKeys.some(k => k.toLowerCase() in Object.fromEntries(keys.map(k=>[k.toLowerCase(),true])));
+        if (isSingle) addOne(obj);
+        else { for (const val of Object.values(obj)) if (val && typeof val==="object") addOne(val); }
       }
+      saveExtras(extras);
+    } else {
+      throw new Error("Formato JSON no válido");
+    }
 
-      // <<< CAMBIADA SOLO ESTA FUNCIÓN >>>
-      function confirmarYSalir(){
-        const deseaGuardar = confirm('¿Deseas guardar antes de salir?');
-        if (deseaGuardar){
-          ejecutarGuardar().then(()=>{
-            if (window.FS){ FS.setDirty(false); FS.disableGuardOnce(); }
-            cerrarSesionExpedienteUI();
-            location.href = 'index.html';
-          });
-        } else {
-          if (window.FS){ FS.setDirty(false); FS.disableGuardOnce(); }
-          cerrarSesionExpedienteUI();
-          location.href = 'index.html';
-        }
-      }
+    saveMap(m); rebuildFiliList(); setStatus("✅ Datos importados."); closeAccordion();
+  }catch(e){
+    setStatus("❌ Error al importar: "+(e.message||e));
+  }finally{
+    ev.target.value="";
+  }
+});
 
-      if (btnSalir){
-        btnSalir.addEventListener('click', (e)=>{
-          e.preventDefault();
-          confirmarYSalir();
-        });
-      }
+/* ==================== AUDIO (grabar/parar) ==================== */
+const btnRec = $('#btnRec'), btnRecStop = $('#btnRecStop'), topBar = $('#topBar');
+let mediaRecorder=null, recChunks=[], recStream=null;
 
-      // Mini-hook: neutralizar el guardián al navegar por la nav superior
-      const nav = document.querySelector('.top-nav');
-      if (nav){
-        nav.addEventListener('click', (e)=>{
-          const a = e.target.closest('a[href]');
-          if (!a) return;
-          if (window.FS){ FS.setDirty(false); FS.disableGuardOnce(); }
-          // dejamos seguir la navegación normal
-        });
-      }
+async function startRecording(ev){
+  try{
+    flashRed(ev.currentTarget);
+    closeAccordion();
+    recStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    let mime=''; if (window.MediaRecorder && MediaRecorder.isTypeSupported){
+      if (MediaRecorder.isTypeSupported('audio/mp4')) mime='audio/mp4';
+      else if (MediaRecorder.isTypeSupported('audio/webm')) mime='audio/webm';
+    }
+    mediaRecorder = mime ? new MediaRecorder(recStream,{mimeType:mime}) : new MediaRecorder(recStream);
+    recChunks=[];
+    mediaRecorder.ondataavailable = e=>{ if(e.data && e.data.size) recChunks.push(e.data); };
+    mediaRecorder.onstart = ()=> setStatus('🔴 Grabando…');
+    mediaRecorder.onstop = async ()=>{
+      try{
+        const type = mediaRecorder.mimeType || (recChunks[0]?.type) || 'audio/webm';
+        const blob = new Blob(recChunks,{type});
+        const ext = type.includes('mp4')?'m4a':type.includes('webm')?'webm':type.includes('wav')?'wav':'webm';
+        const file = new File([blob],`grabacion.${ext}`,{type});
+        setStatus('⏳ Transcribiendo…');
+        const fd = new FormData(); fd.append('file',file,file.name);
+        const r = await fetch(`${API_BASE}/api/whisper`,{method:'POST', body:fd});
+        if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
+        const { text } = await r.json();
+        txt.value = (txt.value ? (txt.value.trim()+" ") : "") + (text||"");
+        setStatus('✅ Transcripción lista.');
+      }catch(e){ setStatus('❌ Error: '+(e.message||e)); }
+      finally{ recStream?.getTracks()?.forEach(t=>t.stop()); recStream=null; mediaRecorder=null; recChunks=[]; }
+    };
+    mediaRecorder.start(1000);
+  }catch(err){ setStatus('❌ Micrófono no disponible: '+(err.message||err)); }
+}
+function stopRecording(ev){ try{ flashRed(ev.currentTarget); if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop(); }catch{} }
 
-    })();
-  </script>
+/* Cerrar acordeón al interactuar con botonera o áreas de texto */
+topBar.addEventListener('click', closeAccordion);
+txt.addEventListener('focus', closeAccordion);
+out.addEventListener('focus', closeAccordion);
 
-  <!-- === Mostrar/ocultar botón "Modificar datos raíz" según expediente === -->
-  <script>
-    (function(){
-      const btn = document.getElementById('btnEditarRaiz');
-      if (!btn) return;
+btnRec.addEventListener('click', startRecording);
+btnRecStop.addEventListener('click', stopRecording);
 
-      function refreshBtn(){
-        const abierto = localStorage.getItem('expedienteAbierto') === 'true';
-        btn.style.display = abierto ? 'inline-flex' : 'none';
-      }
+/* ==================== REDACTAR / LIMPIAR / GUARDAR ==================== */
+$('#btnDraft').addEventListener('click', async (ev)=>{
+  flashRed(ev.currentTarget); closeAccordion();
+  const body = JSON.stringify({ texto: txt.value||"", filiaciones:[], objetos:[], fichas_resueltas:[] });
+  try{
+    setStatus('⏳ Generando redacción…');
+    const r = await fetch(`${API_BASE}/api/police-draft`, { method:'POST', headers:{'Content-Type':'application/json'}, body });
+    if(!r.ok){ let msg='HTTP '+r.status; try{const j=await r.json(); if(j?.error) msg+=' · '+j.error;}catch{} throw new Error(msg); }
+    const { html } = await r.json();
+    out.innerHTML = html || '';
+    setStatus('✅ Redacción lista.');
+  }catch(e){ setStatus('❌ Error en redacción: '+(e.message||e)); }
+});
 
-      // Inicial
-      refreshBtn();
+$('#btnClear').addEventListener('click', (ev)=>{
+  flashRed(ev.currentTarget); closeAccordion();
+  txt.value=''; out.innerHTML=''; setStatus('🧹 Limpio.');
+});
 
-      // Observa cambios de display del panel (lo controla el loader)
-      const panel = document.getElementById('panelFiliaciones');
-      if (panel && 'MutationObserver' in window) {
-        const mo = new MutationObserver(refreshBtn);
-        mo.observe(panel, { attributes: true, attributeFilter: ['style','class'] });
-      }
+$('#btnDownload').addEventListener('click', (ev)=>{
+  flashRed(ev.currentTarget); closeAccordion();
+  const arr = Object.values(loadMap()).map(v=>toSpanishFromInternal(normalizeFicha(v)));
+  const payload = { doc: out.innerHTML || "", filiaciones: arr, extras: loadExtras() };
 
-      // Reaccionar a acciones típicas
-      ['btnIniciarAbrir','btnGuardar','btnSalir'].forEach(id=>{
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('click', ()=> setTimeout(refreshBtn, 300));
-      });
+  const now=new Date();
+  const dd=String(now.getDate()).padStart(2,'0');
+  const mm=String(now.getMonth()+1).padStart(2,'0');
+  const aa=String(now.getFullYear()).slice(-2);
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mi=String(now.getMinutes()).padStart(2,'0');
+  const fname = `Compa ${dd}-${mm}-${aa} ${hh}-${mi}h.json`;
 
-      // (Opcional) cambios en localStorage desde otra pestaña
-      window.addEventListener('storage', (e)=>{
-        if (e.key === 'expedienteAbierto') refreshBtn();
-      });
-    })();
-  </script>
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fname;
+  a.click();
+  setStatus(`💾 Guardado: ${fname}`);
+});
+
+/* ==================== PLEGABLE ==================== */
+document.querySelector('#accFili .acc-h').addEventListener('click',()=>{
+  $('#accBody').classList.toggle('show');
+});
+
+/* ==================== INIT ==================== */
+rebuildFiliList();
+</script>
 </body>
 </html>
